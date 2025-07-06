@@ -18,6 +18,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Tables } from "@/integrations/supabase/types";
 import ProductFormDialog from '@/components/ProductFormDialog';
+import { useUpdateProduct, useProduct } from '@/hooks/useInventory';
 
 interface InventoryItem {
   id: string;
@@ -41,6 +42,8 @@ const InventoryManagement = () => {
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAddProduct, setShowAddProduct] = useState(false);
+  const [editProductId, setEditProductId] = useState<string | null>(null);
+  const [showEditProduct, setShowEditProduct] = useState(false);
 
   useEffect(() => {
     const fetchInventory = async () => {
@@ -338,7 +341,7 @@ const InventoryManagement = () => {
                         </Badge>
                       </td>
                       <td className="p-3">
-                        <Button variant="outline" size="sm">
+                        <Button variant="outline" size="sm" onClick={() => { setEditProductId(item.id); setShowEditProduct(true); }}>
                           <Edit className="h-4 w-4 mr-1" />
                           Edit
                         </Button>
@@ -350,6 +353,15 @@ const InventoryManagement = () => {
             </div>
           </CardContent>
         </Card>
+
+        {editProductId && (
+          <ProductFormDialog
+            open={showEditProduct}
+            onOpenChange={(open) => { setShowEditProduct(open); if (!open) setEditProductId(null); }}
+            productId={editProductId}
+            mode="edit"
+          />
+        )}
       </div>
     </div>
   );

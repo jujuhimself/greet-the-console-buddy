@@ -4,17 +4,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { useCreateProduct } from "@/hooks/useInventory";
+import { useCreateProduct, useUpdateProduct, useProduct } from "@/hooks/useInventory";
 import { useAuth } from "@/contexts/AuthContext";
+import React from "react";
 
 interface ProductFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  productId?: string;
+  mode?: 'add' | 'edit';
 }
 
-const ProductFormDialog = ({ open, onOpenChange }: ProductFormDialogProps) => {
+const ProductFormDialog = ({ open, onOpenChange, productId, mode = 'add' }: ProductFormDialogProps) => {
   const createProduct = useCreateProduct();
+  const updateProduct = useUpdateProduct();
   const { user } = useAuth();
+  const { data: product, isLoading: loadingProduct } = useProduct(productId || '');
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -31,16 +36,26 @@ const ProductFormDialog = ({ open, onOpenChange }: ProductFormDialogProps) => {
     is_public_product: false
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    try {
-      await createProduct.mutateAsync({
-        ...formData,
-        price: formData.sell_price, // Add the missing price property
-        status: 'in-stock' as const
+  // Prefill form in edit mode
+  React.useEffect(() => {
+    if (mode === 'edit' && product && open) {
+      setFormData({
+        name: product.name || '',
+        category: product.category || '',
+        sku: product.sku || '',
+        description: product.description || '',
+        stock: product.stock || 0,
+        min_stock: product.min_stock || 0,
+        max_stock: product.max_stock || 0,
+        buy_price: product.buy_price || 0,
+        sell_price: product.sell_price || 0,
+        supplier: product.supplier || '',
+        expiry_date: product.expiry_date || '',
+        batch_number: product.batch_number || '',
+        is_public_product: !!product.is_public_product
       });
-      
+    }
+    if (mode === 'add' && open) {
       setFormData({
         name: "",
         category: "",
@@ -56,10 +71,24 @@ const ProductFormDialog = ({ open, onOpenChange }: ProductFormDialogProps) => {
         batch_number: "",
         is_public_product: false
       });
-      
+    }
+  }, [mode, product, open]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      if (mode === 'edit' && productId) {
+        await updateProduct.mutateAsync({ productId, updates: formData });
+      } else {
+        await createProduct.mutateAsync({
+          ...formData,
+          price: formData.sell_price,
+          status: 'in-stock' as const
+        });
+      }
       onOpenChange(false);
     } catch (error) {
-      console.error('Error creating product:', error);
+      console.error('Error saving product:', error);
     }
   };
 
@@ -71,7 +100,7 @@ const ProductFormDialog = ({ open, onOpenChange }: ProductFormDialogProps) => {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Product</DialogTitle>
+          <DialogTitle>{mode === 'edit' ? 'Edit Product' : 'Add New Product'}</DialogTitle>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -228,8 +257,8 @@ const ProductFormDialog = ({ open, onOpenChange }: ProductFormDialogProps) => {
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={createProduct.isPending}>
-              {createProduct.isPending ? "Creating..." : "Create Product"}
+            <Button type="submit" disabled={createProduct.isPending || updateProduct.isPending}>
+              {mode === 'edit' ? (updateProduct.isPending ? 'Saving...' : 'Save Changes') : (createProduct.isPending ? 'Creating...' : 'Create Product')}
             </Button>
           </div>
         </form>

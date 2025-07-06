@@ -8,6 +8,9 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { useReportTemplates, useGenerateReport, useGeneratedReports } from "@/hooks/useReporting";
 import ReportModal from "@/components/ReportModal";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import InventoryForecasting from '@/components/inventory/InventoryForecasting';
+import BarcodeScanner from '@/components/BarcodeScanner';
 
 // Add the missing Button import here
 import { Button } from "@/components/ui/button";
@@ -318,302 +321,327 @@ const WholesaleDashboard = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-      <div className="flex">
-        <div className="flex-1">
-          <div className="container mx-auto px-4 py-8">
-            <div className="mb-8">
-              <h1 className="text-4xl font-bold text-gray-900 mb-2">
-                Welcome back, {user?.businessName}
-              </h1>
-              <p className="text-gray-600 text-lg">
-                Manage your wholesale business and serve retail pharmacies
-              </p>
-            </div>
-            
-            <BackupScheduleManager />
-            <WholesaleStatsCards stats={stats} />
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg shadow p-6 mb-8">
-              <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                <Button asChild className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/inventory">Manage Inventory</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/purchase-orders">New Purchase Order</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/orders">View Orders</Link>
-                </Button>
-                {/* New Quick Actions for Staff, CRM, Adjustments, Audit */}
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/staff">Staff Management</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/credit-crm">Credit / CRM</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/adjustments">Inventory Adjustments</Link>
-                </Button>
-                <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
-                  <Link to="/wholesale/audit-reports">Audit Reports</Link>
-                </Button>
-              </div>
-            </div>
-            <WholesaleRecentOrders orders={orders} />
+      <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">Wholesale Dashboard</h1>
+          <p className="text-gray-600 text-lg">Manage your wholesale operations, analytics, and business tools</p>
+        </div>
 
-            {/* Business Analytics Section */}
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-6">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-900">Business Analytics</h2>
-                  <p className="text-gray-600">Comprehensive insights into your wholesale operations</p>
-                </div>
-                <div className="flex gap-3">
-                  <Button 
-                    onClick={() => setReportModalOpen(true)}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generate Report
-                  </Button>
-                  <Button variant="outline" asChild>
-                    <Link to="/wholesale/orders">
-                      <BarChart3 className="h-4 w-4 mr-2" />
-                      View Full Analytics
-                    </Link>
-                  </Button>
-                </div>
-              </div>
-
-              {/* Analytics Summary Cards */}
-              <div className="grid md:grid-cols-4 gap-4 mb-6">
-                <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm opacity-90">Total Revenue</p>
-                        <p className="text-2xl font-bold">TZS {(stats.totalRevenue / 1000000).toFixed(1)}M</p>
-                        <p className="text-xs opacity-75">+12% from last month</p>
-                      </div>
-                      <DollarSign className="h-8 w-8 opacity-75" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm opacity-90">Total Orders</p>
-                        <p className="text-2xl font-bold">{stats.totalOrders}</p>
-                        <p className="text-xs opacity-75">+8% from last month</p>
-                      </div>
-                      <Package className="h-8 w-8 opacity-75" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm opacity-90">Avg Order Value</p>
-                        <p className="text-2xl font-bold">TZS {stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders / 1000).toFixed(0) : 0}K</p>
-                        <p className="text-xs opacity-75">+3% from last month</p>
-                      </div>
-                      <TrendingUp className="h-8 w-8 opacity-75" />
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm opacity-90">Active Retailers</p>
-                        <p className="text-2xl font-bold">{stats.activeRetailers}</p>
-                        <p className="text-xs opacity-75">+2 new this month</p>
-                      </div>
-                      <Users className="h-8 w-8 opacity-75" />
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Analytics Charts */}
-              <div className="grid lg:grid-cols-2 gap-6">
-                {/* Monthly Revenue Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <BarChart3 className="h-5 w-5" />
-                      Monthly Revenue Trend
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={analyticsData.monthlyRevenue}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="month" />
-                        <YAxis />
-                        <Tooltip formatter={(value) => [`TZS ${value}M`, 'Revenue']} />
-                        <Bar dataKey="revenue" fill="#3B82F6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Top Products Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Package className="h-5 w-5" />
-                      Top Selling Products
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <PieChart>
-                        <Pie
-                          data={analyticsData.topProducts}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          label={({ name, revenue }) => `${name}: TZS ${revenue.toFixed(1)}M`}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="revenue"
-                        >
-                          {analyticsData.topProducts.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.fill} />
-                          ))}
-                        </Pie>
-                        <Tooltip formatter={(value) => [`TZS ${value}M`, 'Revenue']} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Order Trends Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5" />
-                      Weekly Order Trends
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <LineChart data={analyticsData.orderTrends}>
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="week" />
-                        <YAxis />
-                        <Tooltip />
-                        <Line type="monotone" dataKey="orders" stroke="#10B981" strokeWidth={2} />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-
-                {/* Retailer Distribution Chart */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Users className="h-5 w-5" />
-                      Retailer Distribution
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <ResponsiveContainer width="100%" height={300}>
-                      <BarChart data={analyticsData.retailerDistribution} layout="horizontal">
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis type="number" />
-                        <YAxis dataKey="name" type="category" width={80} />
-                        <Tooltip formatter={(value) => [`${value} orders`, 'Orders']} />
-                        <Bar dataKey="orders" fill="#8B5CF6" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
-
-            {/* Automated Reports Section */}
-            <div className="mt-8">
-              <Card>
+        {/* Quick Access Cards for Forecasting and Barcode Scanner */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+          <Link to="/wholesale/forecast">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow border-blue-200">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-blue-700">
+                  <span role="img" aria-label="Forecast">📈</span> Inventory Forecasting
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-600">Predict demand, plan stock, and optimize reordering for your wholesale business.</p>
+              </CardContent>
+            </Card>
+          </Link>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-green-200">
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileSearch className="h-5 w-5" />
-                    Recent Reports
+                  <CardTitle className="flex items-center gap-2 text-green-700">
+                    <span role="img" aria-label="Barcode">🔍</span> Barcode Scanner
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {loadingReports ? (
-                    <div className="text-gray-500">Loading reports...</div>
-                  ) : !generatedReports || generatedReports.length === 0 ? (
-                    <div className="text-gray-400">No reports generated yet. Generate your first report to get started.</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="min-w-full text-sm">
-                        <thead>
-                          <tr>
-                            <th className="px-3 py-2 text-left font-semibold">Name</th>
-                            <th className="px-3 py-2 text-left font-semibold">Created</th>
-                            <th className="px-3 py-2 text-left font-semibold">Status</th>
-                            <th className="px-3 py-2 text-left font-semibold">Download</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {generatedReports.slice(0, 3).map((report) => (
-                            <tr key={report.id} className="border-t">
-                              <td className="px-3 py-2">{report.file_path.split("/").pop()}</td>
-                              <td className="px-3 py-2">{new Date(report.created_at).toLocaleString()}</td>
-                              <td className="px-3 py-2 capitalize">
-                                <span className={
-                                  report.status === "completed"
-                                    ? "text-green-700"
-                                    : report.status === "failed"
-                                    ? "text-red-700"
-                                    : "text-blue-700"
-                                }>
-                                  {report.status}
-                                </span>
-                              </td>
-                              <td className="px-3 py-2">
-                                {report.status === "completed" ? (
-                                  <Button size="sm" onClick={() => handleDownload(report.file_path)}>Download</Button>
-                                ) : (
-                                  <span className="text-xs text-gray-500">Not ready</span>
-                                )}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                  <p className="text-gray-600">Scan product barcodes to quickly find and manage inventory items.</p>
                 </CardContent>
               </Card>
-            </div>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl w-full">
+              <BarcodeScanner />
+            </DialogContent>
+          </Dialog>
+        </div>
 
-            {/* Report Generation Modal */}
-            <ReportModal
-              open={reportModalOpen}
-              onOpenChange={setReportModalOpen}
-              templates={reportTemplates || []}
-              onGenerateReport={({ templateId, parameters }) => {
-                generateReport(
-                  { templateId, parameters },
-                  {
-                    onSuccess: () => setReportModalOpen(false),
-                  }
-                );
-              }}
-              isLoading={isPending}
-            />
+        <BackupScheduleManager />
+        <WholesaleStatsCards stats={stats} />
+        {/* Quick Actions */}
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-lg font-semibold mb-4">Quick Actions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <Button asChild className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/inventory">Manage Inventory</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/purchase-orders">New Purchase Order</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/orders">View Orders</Link>
+            </Button>
+            {/* New Quick Actions for Staff, CRM, Adjustments, Audit */}
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/staff">Staff Management</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/credit-crm">Credit / CRM</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/adjustments">Inventory Adjustments</Link>
+            </Button>
+            <Button asChild variant="outline" className="h-20 flex-col items-center justify-center text-base font-medium">
+              <Link to="/wholesale/audit-reports">Audit Reports</Link>
+            </Button>
           </div>
         </div>
+        <WholesaleRecentOrders orders={orders} />
+
+        {/* Business Analytics Section */}
+        <div className="mt-8">
+          <div className="flex justify-between items-center mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900">Business Analytics</h2>
+              <p className="text-gray-600">Comprehensive insights into your wholesale operations</p>
+            </div>
+            <div className="flex gap-3">
+              <Button 
+                onClick={() => setReportModalOpen(true)}
+                className="bg-blue-600 hover:bg-blue-700"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Generate Report
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/wholesale/orders">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  View Full Analytics
+                </Link>
+              </Button>
+            </div>
+          </div>
+
+          {/* Analytics Summary Cards */}
+          <div className="grid md:grid-cols-4 gap-4 mb-6">
+            <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">Total Revenue</p>
+                    <p className="text-2xl font-bold">TZS {(stats.totalRevenue / 1000000).toFixed(1)}M</p>
+                    <p className="text-xs opacity-75">+12% from last month</p>
+                  </div>
+                  <DollarSign className="h-8 w-8 opacity-75" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">Total Orders</p>
+                    <p className="text-2xl font-bold">{stats.totalOrders}</p>
+                    <p className="text-xs opacity-75">+8% from last month</p>
+                  </div>
+                  <Package className="h-8 w-8 opacity-75" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">Avg Order Value</p>
+                    <p className="text-2xl font-bold">TZS {stats.totalOrders > 0 ? (stats.totalRevenue / stats.totalOrders / 1000).toFixed(0) : 0}K</p>
+                    <p className="text-xs opacity-75">+3% from last month</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 opacity-75" />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-gradient-to-r from-orange-500 to-orange-600 text-white">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm opacity-90">Active Retailers</p>
+                    <p className="text-2xl font-bold">{stats.activeRetailers}</p>
+                    <p className="text-xs opacity-75">+2 new this month</p>
+                  </div>
+                  <Users className="h-8 w-8 opacity-75" />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Analytics Charts */}
+          <div className="grid lg:grid-cols-2 gap-6">
+            {/* Monthly Revenue Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Monthly Revenue Trend
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analyticsData.monthlyRevenue}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="month" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`TZS ${value}M`, 'Revenue']} />
+                    <Bar dataKey="revenue" fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Top Products Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  Top Selling Products
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={analyticsData.topProducts}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, revenue }) => `${name}: TZS ${revenue.toFixed(1)}M`}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="revenue"
+                    >
+                      {analyticsData.topProducts.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => [`TZS ${value}M`, 'Revenue']} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Order Trends Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Weekly Order Trends
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={analyticsData.orderTrends}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="orders" stroke="#10B981" strokeWidth={2} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+
+            {/* Retailer Distribution Chart */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Retailer Distribution
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={analyticsData.retailerDistribution} layout="horizontal">
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis type="number" />
+                    <YAxis dataKey="name" type="category" width={80} />
+                    <Tooltip formatter={(value) => [`${value} orders`, 'Orders']} />
+                    <Bar dataKey="orders" fill="#8B5CF6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Automated Reports Section */}
+        <div className="mt-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileSearch className="h-5 w-5" />
+                Recent Reports
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {loadingReports ? (
+                <div className="text-gray-500">Loading reports...</div>
+              ) : !generatedReports || generatedReports.length === 0 ? (
+                <div className="text-gray-400">No reports generated yet. Generate your first report to get started.</div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full text-sm">
+                    <thead>
+                      <tr>
+                        <th className="px-3 py-2 text-left font-semibold">Name</th>
+                        <th className="px-3 py-2 text-left font-semibold">Created</th>
+                        <th className="px-3 py-2 text-left font-semibold">Status</th>
+                        <th className="px-3 py-2 text-left font-semibold">Download</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {generatedReports.slice(0, 3).map((report) => (
+                        <tr key={report.id} className="border-t">
+                          <td className="px-3 py-2">{report.file_path.split("/").pop()}</td>
+                          <td className="px-3 py-2">{new Date(report.created_at).toLocaleString()}</td>
+                          <td className="px-3 py-2 capitalize">
+                            <span className={
+                              report.status === "completed"
+                                ? "text-green-700"
+                                : report.status === "failed"
+                                ? "text-red-700"
+                                : "text-blue-700"
+                            }>
+                              {report.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2">
+                            {report.status === "completed" ? (
+                              <Button size="sm" onClick={() => handleDownload(report.file_path)}>Download</Button>
+                            ) : (
+                              <span className="text-xs text-gray-500">Not ready</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Report Generation Modal */}
+        <ReportModal
+          open={reportModalOpen}
+          onOpenChange={setReportModalOpen}
+          templates={reportTemplates || []}
+          onGenerateReport={({ templateId, parameters }) => {
+            generateReport(
+              { templateId, parameters },
+              {
+                onSuccess: () => setReportModalOpen(false),
+              }
+            );
+          }}
+          isLoading={isPending}
+        />
       </div>
     </div>
   );

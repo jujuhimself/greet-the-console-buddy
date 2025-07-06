@@ -8,6 +8,8 @@ import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PharmacyAppointmentScheduler from "@/components/pharmacy/PharmacyAppointmentScheduler";
+import { customerService, Customer } from "@/services/customerService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 interface PharmacyAppointment {
   id: string;
@@ -28,6 +30,9 @@ const PharmacyAppointments = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [showScheduler, setShowScheduler] = useState(false);
+  const [patientProfileMap, setPatientProfileMap] = useState<Record<string, { name: string; phone: string }>>({});
+  const [selectedAppointment, setSelectedAppointment] = useState<PharmacyAppointment | null>(null);
+  const [showStatusDialog, setShowStatusDialog] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -54,11 +59,32 @@ const PharmacyAppointments = () => {
         appointment_time: apt.appointment_time,
         status: apt.status as 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled',
         notes: apt.notes || undefined,
-        patient_name: 'Patient Name', // Will need proper patient data
-        patient_phone: 'Patient Phone' // Will need proper patient data
+        patient_name: '',
+        patient_phone: ''
       }));
 
       setAppointments(typedAppointments);
+
+      // Fetch patient profile info for all unique user_ids
+      const userIds = Array.from(new Set(typedAppointments.map(a => a.user_id)));
+      if (userIds.length > 0) {
+        const { data: profiles, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, name, phone')
+          .in('id', userIds);
+        if (!profileError && profiles) {
+          const map: Record<string, { name: string; phone: string }> = {};
+          profiles.forEach((p: any) => {
+            map[p.id] = { name: p.name || 'Unknown', phone: p.phone || 'Unknown' };
+          });
+          setPatientProfileMap(map);
+          setAppointments(prev => prev.map(a => ({
+            ...a,
+            patient_name: map[a.user_id]?.name || 'Unknown',
+            patient_phone: map[a.user_id]?.phone || 'Unknown',
+          })));
+        }
+      }
     } catch (error) {
       console.error('Error fetching appointments:', error);
       toast({
@@ -204,12 +230,51 @@ const PharmacyAppointments = () => {
                   )}
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      View Details
-                    </Button>
-                    <Button variant="outline" size="sm">
-                      Update Status
-                    </Button>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={() => setSelectedAppointment(appointment)}>
+                          View Details
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Appointment Details</DialogTitle>
+                        </DialogHeader>
+                        <div>
+                          <div><b>Service:</b> {appointment.service_type}</div>
+                          <div><b>Patient Name:</b> {appointment.patient_name}</div>
+                          <div><b>Patient Phone:</b> {appointment.patient_phone}</div>
+                          <div><b>Date:</b> {new Date(appointment.appointment_date).toLocaleDateString()}</div>
+                          <div><b>Time:</b> {appointment.appointment_time}</div>
+                          <div><b>Status:</b> {appointment.status}</div>
+                          {appointment.notes && <div><b>Notes:</b> {appointment.notes}</div>}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" onClick={() => { setSelectedAppointment(appointment); setShowStatusDialog(true); }}>
+                          Update Status
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Update Appointment Status</DialogTitle>
+                        </DialogHeader>
+                        <div>
+                          <div>Current Status: <b>{appointment.status}</b></div>
+                          <div className="flex gap-2 mt-4">
+                            {['scheduled','confirmed','in-progress','completed','cancelled'].map(status => (
+                              <Button key={status} size="sm" variant={appointment.status === status ? 'default' : 'outline'} onClick={async () => {
+                                await supabase.from('appointments').update({ status }).eq('id', appointment.id);
+                                fetchAppointments();
+                                setShowStatusDialog(false);
+                              }}>{status}</Button>
+                            ))}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>

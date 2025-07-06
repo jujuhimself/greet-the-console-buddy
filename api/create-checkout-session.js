@@ -15,7 +15,7 @@ module.exports = async (req, res) => {
     return;
   }
   console.log('Stripe Checkout Request Body:', req.body);
-  const { amount, currency, productName, success_url, cancel_url } = req.body;
+  const { amount, currency, productName, success_url, cancel_url, ...metadata } = req.body;
   if (!amount) {
     console.error('Missing amount in request');
     res.status(400).json({ error: 'Missing amount in request' });
@@ -45,6 +45,7 @@ module.exports = async (req, res) => {
       mode: 'payment',
       success_url,
       cancel_url,
+      metadata,
     });
     res.status(200).json({ id: session.id, url: session.url });
   } catch (err) {

@@ -21,6 +21,7 @@ import BrowseProducts from "@/pages/BrowseProducts";
 import MyOrders from "@/pages/MyOrders";
 import Catalog from "@/pages/Catalog";
 import OrderHistory from "@/pages/OrderHistory";
+import PersonalHealth from '@/pages/individual/PersonalHealth';
 
 // Pharmacy/Retail Pages
 import PharmacyDashboard from "@/pages/PharmacyDashboard";
@@ -48,6 +49,7 @@ import RetailReporting from "@/pages/retail/RetailReporting";
 import CreditCRMManagement from '@/pages/CreditCRMManagement';
 import InventoryAdjustments from '@/pages/InventoryAdjustments';
 import AuditReports from '@/pages/AuditReports';
+import PharmacyForecast from '@/pages/pharmacy/PharmacyForecast';
 
 // Wholesale Pages
 import WholesaleDashboard from "@/pages/WholesaleDashboard";
@@ -62,6 +64,7 @@ import WholesaleCreditCRM from "@/pages/wholesale/WholesaleCreditCRM";
 import WholesaleStaffManagement from "@/pages/wholesale/WholesaleStaffManagement";
 import WholesaleAdjustments from "@/pages/wholesale/WholesaleAdjustments";
 import WholesaleAuditTrail from "@/pages/wholesale/WholesaleAuditTrail";
+import WholesaleForecast from '@/pages/wholesale/WholesaleForecast';
 
 // Lab Pages
 import LabDashboard from "@/pages/LabDashboard";
@@ -142,6 +145,11 @@ const AppRoutes = () => {
       <Route path="/order-history" element={
         <RouteGuard allowedRoles={['individual']}>
           <OrderHistory />
+        </RouteGuard>
+      } />
+      <Route path="/dashboard/personal-health" element={
+        <RouteGuard allowedRoles={['individual']}>
+          <PersonalHealth />
         </RouteGuard>
       } />
 
@@ -451,6 +459,20 @@ const AppRoutes = () => {
             <RetailPos />
           </RouteGuard>
         )
+      } />
+
+      {/* Pharmacy Forecast Route */}
+      <Route path="/pharmacy/forecast" element={
+        <RouteGuard allowedRoles={['retail']} requireApproval>
+          <PharmacyForecast />
+        </RouteGuard>
+      } />
+
+      {/* Wholesale Forecast Route */}
+      <Route path="/wholesale/forecast" element={
+        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+          <WholesaleForecast />
+        </RouteGuard>
       } />
 
       {/* Catch all - 404 */}

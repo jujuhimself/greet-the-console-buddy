@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { usePrescriptions, usePharmacyPrescriptions, useCreatePrescription, useUpdatePrescriptionStatus } from '@/hooks/usePrescriptions';
 import { useAuth } from '@/contexts/AuthContext';
+import { supabase } from "@/integrations/supabase/client";
 
 interface Prescription {
   id: string;
@@ -32,6 +33,7 @@ interface Prescription {
   instructions?: string;
   created_at: string;
   updated_at: string;
+  file_path?: string;
 }
 
 const PrescriptionManagement = () => {
@@ -327,6 +329,25 @@ const PrescriptionManagement = () => {
                                 </CardHeader>
                                 <CardContent>
                                   <p>{prescription.instructions}</p>
+                                </CardContent>
+                              </Card>
+                            )}
+
+                            {selectedPrescription?.file_path && (
+                              <Card>
+                                <CardHeader>
+                                  <CardTitle className="text-lg">Prescription Image</CardTitle>
+                                </CardHeader>
+                                <CardContent>
+                                  {selectedPrescription.file_path.endsWith('.pdf') ? (
+                                    <a href={supabase.storage.from('prescriptions').getPublicUrl(selectedPrescription.file_path).data.publicUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">View PDF</a>
+                                  ) : (
+                                    <img
+                                      src={supabase.storage.from('prescriptions').getPublicUrl(selectedPrescription.file_path).data.publicUrl}
+                                      alt="Prescription"
+                                      className="max-w-xs rounded border"
+                                    />
+                                  )}
                                 </CardContent>
                               </Card>
                             )}

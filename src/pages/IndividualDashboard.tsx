@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useIndividualDashboard } from "@/hooks/useIndividualDashboard";
 import IndividualStatsCards from "@/components/individual/IndividualStatsCards";
@@ -10,6 +10,7 @@ import LabResults from "@/components/individual/LabResults";
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useNotificationSubscription } from "@/hooks/useNotifications";
+import { Button } from "@/components/ui/button";
 
 const IndividualDashboard = () => {
   const { user } = useAuth();
@@ -74,6 +75,13 @@ const IndividualDashboard = () => {
           description="Find nearby pharmacies and order your medicines"
           badge={{ text: "Patient Portal", variant: "outline" }}
         />
+        <div className="mb-6 flex justify-end">
+          <Link to="/dashboard/personal-health">
+            <Button variant="outline" className="bg-pink-50 text-pink-700 border-pink-200 hover:bg-pink-100 font-semibold shadow">
+              🌟 Personal Health: HIV Self-Test & Circumcision
+            </Button>
+          </Link>
+        </div>
         <IndividualStatsCards stats={stats} />
         <IndividualQuickActions />
         <div className="grid lg:grid-cols-2 gap-8">

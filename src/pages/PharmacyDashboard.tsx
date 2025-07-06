@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Clock, Loader2, AlertTriangle } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import QuickReorder from "@/components/QuickReorder";
 import { BreadcrumbNavigation } from "@/components/BreadcrumbNavigation";
@@ -18,6 +18,9 @@ import { logError } from "@/utils/logger";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import BusinessTools from '@/components/BusinessTools';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import InventoryForecasting from '@/components/inventory/InventoryForecasting';
+import BarcodeScanner from '@/components/BarcodeScanner';
 
 const PharmacyDashboard = () => {
   const { user, logout } = useAuth();
@@ -136,15 +139,46 @@ const PharmacyDashboard = () => {
   return (
     <ErrorBoundary>
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
-        
         <div className="container mx-auto px-4 py-8">
           <BreadcrumbNavigation />
-          
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Welcome back, {user?.pharmacyName}
             </h1>
             <p className="text-gray-600 text-lg">Manage your orders and browse our medical product catalog</p>
+          </div>
+
+          {/* Quick Access Cards for Forecasting and Barcode Scanner */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <Link to="/pharmacy/forecast">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-blue-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-blue-700">
+                    <span role="img" aria-label="Forecast">📈</span> Inventory Forecasting
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Predict demand, plan stock, and optimize reordering for your pharmacy.</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Dialog>
+              <DialogTrigger asChild>
+                <Card className="cursor-pointer hover:shadow-lg transition-shadow border-green-200">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-green-700">
+                      <span role="img" aria-label="Barcode">🔍</span> Barcode Scanner
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-gray-600">Scan product barcodes to quickly find and manage inventory items.</p>
+                  </CardContent>
+                </Card>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl w-full">
+                <BarcodeScanner />
+              </DialogContent>
+            </Dialog>
           </div>
 
           <PharmacyStatsCards stats={stats} />
