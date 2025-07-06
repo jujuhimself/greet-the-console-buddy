@@ -11,7 +11,6 @@ export interface User {
   // Common fields
   phone?: string;
   address?: string;
-  isApproved?: boolean;
   createdAt?: string;
   
   // Individual user fields
@@ -84,7 +83,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role: profile.role,
       phone: profile.phone,
       address: profile.address,
-      isApproved: profile.is_approved,
       createdAt: profile.created_at,
       dateOfBirth: profile.date_of_birth,
       emergencyContact: profile.emergency_contact,
@@ -183,19 +181,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.user) {
         const profile = await fetchUserProfile(data.user.id);
         if (profile) {
-          // Check if user is approved (except for individuals and admins)
-          if (!profile.is_approved && profile.role !== "individual" && profile.role !== "admin") {
-            await supabase.auth.signOut();
-            setIsLoading(false);
-            import("@/hooks/use-toast").then(({ toast }) => {
-              toast({
-                title: "Pending Approval",
-                description: "Your account is pending approval. Please contact the administrator.",
-                variant: "destructive",
-              });
-            });
-            return { success: false, error: "Your account is pending approval. Please contact the administrator." };
-          }
           const userData = convertProfileToUser(profile, data.user);
           setUser(userData);
           setSession(data.session);

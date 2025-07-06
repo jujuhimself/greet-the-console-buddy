@@ -128,20 +128,6 @@ const SystemSettings = () => {
               <CardContent className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="theme">Theme</Label>
-                    <Select value={settings.theme} onValueChange={(value) => setSettings({...settings, theme: value})}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="light">Light</SelectItem>
-                        <SelectItem value="dark">Dark</SelectItem>
-                        <SelectItem value="system">System</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  
-                  <div className="space-y-2">
                     <Label htmlFor="language">Language</Label>
                     <Select value={settings.language} onValueChange={(value) => setSettings({...settings, language: value})}>
                       <SelectTrigger>

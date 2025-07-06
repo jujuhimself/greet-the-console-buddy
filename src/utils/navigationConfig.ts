@@ -46,6 +46,7 @@ export class NavigationMenuConfig {
       admin: [
         { label: "Dashboard", icon: React.createElement(Home, { className: "w-4 h-4" }), href: "/admin" },
         { label: "User Management", icon: React.createElement(Users, { className: "w-4 h-4" }), href: "/admin/users" },
+        { label: "Branch Management", icon: React.createElement(Building, { className: "w-4 h-4" }), href: "/admin/branches" },
         { label: "System Monitoring", icon: React.createElement(Activity, { className: "w-4 h-4" }), href: "/admin/system-monitoring" },
         { label: "Audit Logs", icon: React.createElement(Eye, { className: "w-4 h-4" }), href: "/admin/audit-logs" },
         { label: "Settings", icon: React.createElement(Settings, { className: "w-4 h-4" }), href: "/settings" },

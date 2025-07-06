@@ -165,7 +165,6 @@ const WholesaleBusinessTools = () => {
                     <span className="text-sm font-medium">Active Orders</span>
                   </div>
                   <p className="text-2xl font-bold text-blue-600">47</p>
-                  <p className="text-xs text-gray-500">8 pending approval</p>
                 </CardContent>
               </Card>
 

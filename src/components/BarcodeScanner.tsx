@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { inventoryService } from "@/services/inventoryService";
 import { useAuth } from "@/contexts/AuthContext";
 import QrReader from "react-qr-barcode-scanner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Product {
   id: string;
@@ -29,6 +30,10 @@ const BarcodeScanner = () => {
   const [lastScanned, setLastScanned] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const [showAddProduct, setShowAddProduct] = useState(false);
+  const [pendingBarcode, setPendingBarcode] = useState("");
+  const [addProduct, setAddProduct] = useState({ name: '', barcode: '', price: '', category: '', stock: '', minStock: '' });
+  const [addLoading, setAddLoading] = useState(false);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -60,26 +65,23 @@ const BarcodeScanner = () => {
     fetchProducts();
   }, [user]);
 
-  const handleScan = (code: string) => {
-    // Prevent duplicate scans
+  const handleScan = async (code: string) => {
     if (lastScanned === code) return;
-    
     setLastScanned(code);
     setScannedCode(code);
-    
     const product = products.find(p => p.barcode === code || p.id === code);
     if (product) {
-      setFoundProduct(product);
+      // Fetch real details from backend
+      const realProduct = await inventoryService.getProduct(product.id);
+      setFoundProduct(realProduct || product);
       toast({
         title: "Product Found!",
-        description: `${product.name} - Stock: ${product.stock}`,
+        description: `${realProduct?.name || product.name} - Stock: ${realProduct?.stock ?? product.stock}`,
       });
     } else {
-      toast({
-        title: "Product Not Found",
-        description: `No product found with barcode: ${code}`,
-        variant: "destructive",
-      });
+      setPendingBarcode(code);
+      setAddProduct({ name: '', barcode: code, price: '', category: '', stock: '', minStock: '' });
+      setShowAddProduct(true);
     }
   };
 
@@ -108,6 +110,31 @@ const BarcodeScanner = () => {
 
   const lowStockProducts = products.filter(p => p.stock <= p.minStock);
 
+  const handleAddProductSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAddLoading(true);
+    try {
+      await inventoryService.createProduct({
+        name: addProduct.name,
+        sku: addProduct.barcode,
+        sell_price: Number(addProduct.price),
+        category: addProduct.category,
+        stock: Number(addProduct.stock),
+        min_stock_level: Number(addProduct.minStock),
+        status: 'in-stock',
+        buy_price: 0,
+      });
+      toast({ title: 'Product added!', description: addProduct.name });
+      setShowAddProduct(false);
+      setAddProduct({ name: '', barcode: '', price: '', category: '', stock: '', minStock: '' });
+      // Optionally refetch products
+    } catch (err: any) {
+      toast({ title: 'Failed to add product', description: err.message, variant: 'destructive' });
+    } finally {
+      setAddLoading(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -132,7 +159,8 @@ const BarcodeScanner = () => {
                     }
                   }}
                   onError={handleCameraError}
-                  style={{ width: "100%", height: "300px" }}
+                  width={"100%"}
+                  height={300}
                 />
               </div>
               <div className="absolute top-2 right-2">
@@ -252,6 +280,27 @@ const BarcodeScanner = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* Add Product Dialog */}
+      <Dialog open={showAddProduct} onOpenChange={setShowAddProduct}>
+        <DialogContent className="max-w-md w-full">
+          <DialogHeader>
+            <DialogTitle>Add New Product</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAddProductSubmit} className="space-y-3">
+            <Input placeholder="Barcode" value={addProduct.barcode} disabled />
+            <Input placeholder="Name" value={addProduct.name} onChange={e => setAddProduct(p => ({ ...p, name: e.target.value }))} required />
+            <Input placeholder="Category" value={addProduct.category} onChange={e => setAddProduct(p => ({ ...p, category: e.target.value }))} required />
+            <Input placeholder="Price" type="number" value={addProduct.price} onChange={e => setAddProduct(p => ({ ...p, price: e.target.value }))} required />
+            <Input placeholder="Stock" type="number" value={addProduct.stock} onChange={e => setAddProduct(p => ({ ...p, stock: e.target.value }))} required />
+            <Input placeholder="Min Stock Level" type="number" value={addProduct.minStock} onChange={e => setAddProduct(p => ({ ...p, minStock: e.target.value }))} required />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setShowAddProduct(false)} disabled={addLoading}>Cancel</Button>
+              <Button type="submit" disabled={addLoading}>{addLoading ? 'Adding...' : 'Add Product'}</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

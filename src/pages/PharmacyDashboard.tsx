@@ -21,6 +21,7 @@ import BusinessTools from '@/components/BusinessTools';
 import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import InventoryForecasting from '@/components/inventory/InventoryForecasting';
 import BarcodeScanner from '@/components/BarcodeScanner';
+import BranchManagement from './BranchManagement';
 
 const PharmacyDashboard = () => {
   const { user, logout } = useAuth();
@@ -60,7 +61,7 @@ const PharmacyDashboard = () => {
       
       return { stats, recentOrders };
     },
-    enabled: !!user && user.role === 'retail' && !!user.isApproved,
+    enabled: !!user && user.role === 'retail',
   });
 
   useEffect(() => {
@@ -82,27 +83,6 @@ const PharmacyDashboard = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-      </div>
-    );
-  }
-
-  if (!user.isApproved) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center">Pending Approval</CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <Clock className="h-16 w-16 text-yellow-500 mx-auto" />
-            <p className="text-gray-600">
-              Your pharmacy account is pending admin approval. You'll receive an email notification once approved.
-            </p>
-            <Button onClick={logout} variant="outline">
-              Back to Login
-            </Button>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -141,6 +121,7 @@ const PharmacyDashboard = () => {
       <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
         <div className="container mx-auto px-4 py-8">
           <BreadcrumbNavigation />
+          
           <div className="mb-8">
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Welcome back, {user?.pharmacyName}
@@ -179,6 +160,30 @@ const PharmacyDashboard = () => {
                 <BarcodeScanner />
               </DialogContent>
             </Dialog>
+            <Link to="/retail/branches">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-purple-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-purple-700">
+                    <span role="img" aria-label="Branches">🏢</span> Branch Management
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Manage your branches, add new locations, and assign staff.</p>
+                </CardContent>
+              </Card>
+            </Link>
+            <Link to="/retail/branch-inventory">
+              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-orange-200">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-orange-700">
+                    <span role="img" aria-label="Inventory">📦</span> Branch Inventory
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-gray-600">Manage inventory for your selected branch.</p>
+                </CardContent>
+              </Card>
+            </Link>
           </div>
 
           <PharmacyStatsCards stats={stats} />

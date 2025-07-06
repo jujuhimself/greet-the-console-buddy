@@ -1,15 +1,11 @@
 const Stripe = require('stripe');
-
-if (!process.env.STRIPE_SECRET_KEY) {
-  module.exports = (req, res) => {
-    res.status(500).json({ error: 'Stripe secret key not set in environment.' });
-  };
-  return;
-}
-
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 
 module.exports = async (req, res) => {
+  if (!process.env.STRIPE_SECRET_KEY) {
+    res.status(500).json({ error: 'Stripe secret key not set in environment.' });
+    return;
+  }
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Method not allowed' });
     return;

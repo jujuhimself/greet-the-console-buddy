@@ -109,11 +109,6 @@ const ResponsiveNavigation = () => {
                     <p className="text-sm font-medium text-gray-900 truncate max-w-32">
                       {user?.name}
                     </p>
-                    {!user.isApproved && user.role !== 'individual' && (
-                      <Badge variant="outline" className="text-xs">
-                        Pending
-                      </Badge>
-                    )}
                   </div>
                   <p className="text-xs text-gray-500">
                     {getRoleDisplayName(user?.role)}
@@ -184,11 +179,6 @@ const ResponsiveNavigation = () => {
                         <div className="flex-1">
                           <div className="flex items-center gap-2">
                             <p className="font-medium text-gray-900">{user.name}</p>
-                            {!user.isApproved && user.role !== 'individual' && (
-                              <Badge variant="outline" className="text-xs">
-                                Pending
-                              </Badge>
-                            )}
                           </div>
                           <p className="text-sm text-gray-500">
                             {getRoleDisplayName(user.role)}

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,18 +35,13 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
           return;
         }
 
-        if (requireApproval && !user.isApproved && user.role !== 'individual' && user.role !== 'admin') {
-          // Stay on current page but show approval message
-          return;
-        }
-
         setError(null);
       }
     } catch (err: any) {
       logError(err, 'RouteGuard authorization error');
       setError('An error occurred while checking permissions');
     }
-  }, [user, isLoading, navigate, allowedRoles, requireApproval]);
+  }, [user, isLoading, navigate, allowedRoles]);
 
   if (isLoading) {
     return (
@@ -92,30 +86,6 @@ const RouteGuard: React.FC<RouteGuardProps> = ({
 
   if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
     return null;
-  }
-
-  // Show approval pending message for non-individual/non-admin users
-  if (requireApproval && !user.isApproved && user.role !== 'individual' && user.role !== 'admin') {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle className="text-center flex items-center justify-center gap-2">
-              <Clock className="h-6 w-6 text-yellow-500" />
-              Approval Pending
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="text-center space-y-4">
-            <p className="text-gray-600">
-              Your account is pending admin approval. You'll receive a notification once approved.
-            </p>
-            <Button onClick={logout} variant="outline">
-              Back to Login
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
   }
 
   return <>{children}</>;

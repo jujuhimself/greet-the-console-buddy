@@ -50,6 +50,8 @@ import CreditCRMManagement from '@/pages/CreditCRMManagement';
 import InventoryAdjustments from '@/pages/InventoryAdjustments';
 import AuditReports from '@/pages/AuditReports';
 import PharmacyForecast from '@/pages/pharmacy/PharmacyForecast';
+import RetailBranchManagement from '@/pages/RetailBranchManagement';
+import RetailBranchInventory from '@/pages/RetailBranchInventory';
 
 // Wholesale Pages
 import WholesaleDashboard from "@/pages/WholesaleDashboard";
@@ -65,6 +67,7 @@ import WholesaleStaffManagement from "@/pages/wholesale/WholesaleStaffManagement
 import WholesaleAdjustments from "@/pages/wholesale/WholesaleAdjustments";
 import WholesaleAuditTrail from "@/pages/wholesale/WholesaleAuditTrail";
 import WholesaleForecast from '@/pages/wholesale/WholesaleForecast';
+import BranchInventoryManager from '@/components/BranchInventoryManager';
 
 // Lab Pages
 import LabDashboard from "@/pages/LabDashboard";
@@ -77,6 +80,7 @@ import LabQualityControl from "@/pages/lab/LabQualityControl";
 // Admin Pages
 import AdminDashboard from "@/pages/AdminDashboard";
 import AdminSystemMonitoring from "@/pages/admin/AdminSystemMonitoring";
+import BranchManagement from "@/pages/BranchManagement";
 
 // Common Pages
 import BusinessTools from "@/pages/BusinessTools";
@@ -274,37 +278,42 @@ const AppRoutes = () => {
 
       {/* Wholesale Routes */}
       <Route path="/wholesale" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleDashboard />
         </RouteGuard>
       } />
       <Route path="/wholesale/inventory" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleInventory />
         </RouteGuard>
       } />
+      <Route path="/wholesale/branch-inventory" element={
+        <RouteGuard allowedRoles={['wholesale']}>
+          <BranchInventoryManager />
+        </RouteGuard>
+      } />
       <Route path="/wholesale/orders" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleOrders />
         </RouteGuard>
       } />
       <Route path="/wholesale/retailer-orders" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleRetailerOrders />
         </RouteGuard>
       } />
       <Route path="/wholesale/purchase-orders" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesalePurchaseOrders />
         </RouteGuard>
       } />
       <Route path="/wholesale/retailers" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleRetailers />
         </RouteGuard>
       } />
       <Route path="/wholesale/business-tools" element={
-        <RouteGuard allowedRoles={['wholesale']} requireApproval>
+        <RouteGuard allowedRoles={['wholesale']}>
           <WholesaleBusinessTools />
         </RouteGuard>
       } />
@@ -393,19 +402,19 @@ const AppRoutes = () => {
           <AdminDashboard />
         </RouteGuard>
       } />
-      <Route path="/admin/system-monitoring" element={
-        <RouteGuard allowedRoles={['admin']}>
-          <AdminSystemMonitoring />
-        </RouteGuard>
-      } />
       <Route path="/admin/users" element={
         <RouteGuard allowedRoles={['admin']}>
           <AdminDashboard />
         </RouteGuard>
       } />
-      <Route path="/admin/audit-logs" element={
+      <Route path="/wholesale/branches" element={
+        <RouteGuard allowedRoles={['wholesale', 'retail']}>
+          <BranchManagement />
+        </RouteGuard>
+      } />
+      <Route path="/admin/system-monitoring" element={
         <RouteGuard allowedRoles={['admin']}>
-          <AdminDashboard />
+          <AdminSystemMonitoring />
         </RouteGuard>
       } />
 
@@ -472,6 +481,20 @@ const AppRoutes = () => {
       <Route path="/wholesale/forecast" element={
         <RouteGuard allowedRoles={['wholesale']} requireApproval>
           <WholesaleForecast />
+        </RouteGuard>
+      } />
+
+      {/* Retail Branch Management Route */}
+      <Route path="/retail/branches" element={
+        <RouteGuard allowedRoles={['retail']} requireApproval>
+          <RetailBranchManagement />
+        </RouteGuard>
+      } />
+
+      {/* Retail Branch Inventory Route */}
+      <Route path="/retail/branch-inventory" element={
+        <RouteGuard allowedRoles={['retail']} requireApproval>
+          <RetailBranchInventory />
         </RouteGuard>
       } />
 

@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
+import { BranchProvider } from "@/contexts/BranchContext";
 import Navbar from "@/components/Navbar";
 import AppRoutes from "./routes/AppRoutes";
 import ChatBot from "@/components/ChatBot";
@@ -17,11 +18,13 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50">
-            <Navbar />
-            <AppRoutes />
-            <ChatBot />
-          </div>
+          <BranchProvider>
+            <div className="min-h-screen bg-gray-50">
+              <Navbar />
+              <AppRoutes />
+              <ChatBot />
+            </div>
+          </BranchProvider>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

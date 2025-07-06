@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { settingsService, UserSettings } from '@/services/settingsService';
 import { auditService } from '@/services/auditService';
@@ -107,27 +106,6 @@ export const useDeleteAccount = () => {
       });
     },
   });
-};
-
-// Theme management
-export const useTheme = () => {
-  const { data: settings } = useUserSettings();
-  const updateSettings = useUpdateSettings();
-
-  const setTheme = (theme: 'light' | 'dark' | 'system') => {
-    if (settings) {
-      updateSettings.mutate({
-        updates: { theme },
-        oldSettings: settings,
-      });
-    }
-  };
-
-  return {
-    theme: settings?.theme || 'system',
-    setTheme,
-    isUpdating: updateSettings.isPending,
-  };
 };
 
 // Notification preferences

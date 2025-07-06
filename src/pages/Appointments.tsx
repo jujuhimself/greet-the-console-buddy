@@ -71,9 +71,9 @@ const Appointments = () => {
               Find Lab
             </Button>
             <Button onClick={() => setShowPharmacyDirectory(true)}>
-              <Plus className="h-5 w-5 mr-2" />
+            <Plus className="h-5 w-5 mr-2" />
               Find Pharmacy
-            </Button>
+          </Button>
           </div>
         </div>
 
