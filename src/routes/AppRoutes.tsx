@@ -88,6 +88,7 @@ import SystemSettings from "@/pages/SystemSettings";
 import Pharmacies from "@/pages/Pharmacies";
 import NotFound from "@/pages/NotFound";
 import Analytics from "@/pages/Analytics";
+import CheckoutSuccess from '@/pages/CheckoutSuccess';
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -497,6 +498,9 @@ const AppRoutes = () => {
           <RetailBranchInventory />
         </RouteGuard>
       } />
+
+      {/* Order Success Route */}
+      <Route path="/checkout-success" element={<CheckoutSuccess />} />
 
       {/* Catch all - 404 */}
       <Route path="*" element={<NotFound />} />

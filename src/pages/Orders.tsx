@@ -10,6 +10,7 @@ import { Package, Clock, Search, Filter, Download, Eye, Plus, AlertTriangle } fr
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
 import OrderLifecycleManager from "@/components/OrderLifecycleManager";
+import { supabase } from '@/integrations/supabase/client';
 
 // Update minimal Order fallback type to match OrderLifecycleManager needs
 type Order = {
@@ -46,8 +47,38 @@ const Orders = () => {
       return;
     }
 
-    // Remove MockDataService; leave orders empty
-    setOrders([]); // If you add any default orders later, be sure they include the shippingAddress property
+    // Fetch real orders for this pharmacy
+    (async () => {
+      const { data: ordersData, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('pharmacy_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        setOrders([]);
+        return;
+      }
+      // Map to UI Order type
+      setOrders((ordersData || []).map((order: any) => ({
+        id: order.id,
+        status: order.status,
+        pharmacyName: order.pharmacy_name || user.pharmacyName || '',
+        createdAt: order.created_at,
+        items: (order.items || []).map((item: any) => ({
+          name: item.product_name || item.name || '',
+          sku: item.sku,
+          quantity: item.quantity,
+          price: item.unit_price || item.price || 0,
+        })),
+        total: order.total_amount || 0,
+        paymentStatus: order.payment_status,
+        paymentMethod: order.payment_method,
+        updatedAt: order.updated_at,
+        urgency: order.urgency,
+        trackingNumber: order.tracking_number,
+        shippingAddress: order.shipping_address?.address || '',
+      })));
+    })();
   }, [user, navigate]);
 
   const handleOrderStatusUpdate = (orderId: string, newStatus: Order['status']) => {
@@ -129,6 +160,10 @@ const Orders = () => {
         return filteredOrders;
     }
   };
+
+  // Helper to check if order contains HIV kit
+  const isHivKitOrder = (order: Order) =>
+    order.items.some(item => (item.name || '').toLowerCase().includes('hiv self-test kit'));
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
@@ -296,7 +331,12 @@ const Orders = () => {
                               </div>
                               <div>
                                 <div className="flex items-center gap-2 mb-1">
-                                  <h3 className="font-semibold text-lg">#{order.id}</h3>
+                                  <p className="font-semibold text-lg flex items-center gap-2">
+                                    Order #{order.id}
+                                    {isHivKitOrder(order) && (
+                                      <span className="inline-block bg-pink-500 text-white text-xs font-bold px-2 py-1 rounded">HIV Kit</span>
+                                    )}
+                                  </p>
                                   {order.urgency === 'urgent' && (
                                     <Badge variant="destructive" className="text-xs">
                                       <AlertTriangle className="h-3 w-3 mr-1" />

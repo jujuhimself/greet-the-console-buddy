@@ -9,9 +9,12 @@ import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 import { orderService } from '@/services/orderService';
 import { appointmentService } from '@/services/appointmentService';
-import type { PlatformOrder } from '@/services/orderService';
+import type { PlatformOrder, PlatformOrderCreate } from '@/services/orderService';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import { financialService } from '@/services/financialService';
+import { useToast } from '@/hooks/use-toast';
+import { useNavigate } from 'react-router-dom';
 
 const swahiliGreetings = ["habari", "shikamoo", "mambo", "vipi", "salama"]; // simple Swahili detection
 
@@ -39,6 +42,8 @@ const PersonalHealth = () => {
   const [bookedSlots, setBookedSlots] = useState<{ date: string, time: string }[]>([]);
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [selectedTime, setSelectedTime] = useState('');
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
   // For the time picker, use 30-min increments
   const timeOptions = Array.from({ length: 21 }, (_, i) => {
@@ -97,6 +102,13 @@ const PersonalHealth = () => {
         });
     }
   }, [assistantView]);
+
+  useEffect(() => {
+    if (orderForm.success) {
+      toast({ title: 'Order Successful', description: 'Your order has been placed!' });
+      setTimeout(() => navigate('/checkout-success'), 1200);
+    }
+  }, [orderForm.success, toast, navigate]);
 
   // Chatbot logic handler
   const handleChatSubmit = () => {
@@ -413,43 +425,40 @@ const PersonalHealth = () => {
               ) : (
                 <form onSubmit={async e => {
                   e.preventDefault();
+                  if (!user) {
+                    toast({ title: 'Login Required', description: 'Please log in to place an order.', variant: 'destructive' });
+                    navigate('/login');
+                    return;
+                  }
                   setOrderForm(f => ({ ...f, loading: true, error: '' }));
                   try {
                     if (orderForm.paymentMethod === 'Card') {
-                      // Stripe Checkout
-                      const stripeBody = {
-                        amount: 1000, // TODO: Replace with actual price in cents
-                        currency: 'tzs',
-                        productName: 'HIV Self-Test Kit',
-                        success_url: window.location.origin + '/order-success',
-                        cancel_url: window.location.origin + '/order-cancel',
-                        userId: user?.id,
-                        pharmacyId: selectedPharmacy?.id,
-                        pharmacyName: selectedPharmacy?.name,
-                        deliveryName: orderForm.name,
-                        deliveryAlias: orderForm.alias,
-                        deliveryPhone: orderForm.phone,
-                        deliveryAddress: orderForm.address,
-                        paymentMethod: orderForm.paymentMethod,
-                        quantity: 1,
+                      // Create order in DB
+                      const orderData: PlatformOrderCreate = {
+                        user_id: user.id,
+                        order_type: 'retail',
+                        order_number: undefined,
+                        total_amount: 1000, // TODO: Replace with actual price
+                        status: 'completed',
+                        payment_status: 'paid',
+                        payment_method: 'Card',
+                        shipping_address: { name: orderForm.name, alias: orderForm.alias, phone: orderForm.phone, address: orderForm.address },
+                        items: [{ product_name: 'HIV Self-Test Kit', quantity: 1, unit_price: 1000, total_price: 1000, pharmacy_id: selectedPharmacy?.id, pharmacy_name: selectedPharmacy?.name }],
                       };
-                      const response = await fetch('/api/create-checkout-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(stripeBody),
+                      await orderService.createPlatformOrder(orderData);
+                      // Add financial transaction
+                      await financialService.addTransaction({
+                        type: 'income',
+                        amount: 1000, // TODO: Replace with actual price
+                        category: 'Sales',
+                        description: 'HIV Self-Test Kit',
+                        transaction_date: new Date().toISOString().split('T')[0],
                       });
-                      const result = await response.json();
-                      if (result.url) {
-                        window.location.href = result.url;
-                        return;
-                      } else {
-                        setOrderForm(f => ({ ...f, loading: false, error: result.error || 'Stripe checkout failed.' }));
-                        return;
-                      }
+                      setOrderForm(f => ({ ...f, loading: false, success: true }));
                     } else {
                       // Pay on Delivery or Mobile Money: create order immediately
-                      const orderData: Omit<PlatformOrder, 'id' | 'created_at' | 'updated_at'> = {
-                        user_id: user?.id,
+                      const orderData: PlatformOrderCreate = {
+                        user_id: user.id,
                         order_type: 'retail',
                         order_number: undefined,
                         total_amount: 0,
@@ -485,45 +494,46 @@ const PersonalHealth = () => {
                   </div>
                   {orderForm.error && <div className="text-red-600 text-sm">{orderForm.error}</div>}
                   {orderForm.paymentMethod === 'Card' ? (
-                    <Button className="mt-4 w-full" type="button" disabled={orderForm.loading} onClick={async () => {
+                    <form className="mt-4 space-y-4" onSubmit={async (e) => {
+                      e.preventDefault();
                       setOrderForm(f => ({ ...f, loading: true, error: '' }));
                       try {
-                        const stripeBody = {
-                          amount: 1000, // TODO: Replace with actual price in cents
-                          currency: 'tzs',
-                          productName: 'HIV Self-Test Kit',
-                          success_url: window.location.origin + '/order-success',
-                          cancel_url: window.location.origin + '/order-cancel',
-                          userId: user?.id,
-                          pharmacyId: selectedPharmacy?.id,
-                          pharmacyName: selectedPharmacy?.name,
-                          deliveryName: orderForm.name,
-                          deliveryAlias: orderForm.alias,
-                          deliveryPhone: orderForm.phone,
-                          deliveryAddress: orderForm.address,
-                          paymentMethod: orderForm.paymentMethod,
-                          quantity: 1,
+                        // Create order in DB
+                        const orderData: PlatformOrderCreate = {
+                          user_id: user.id,
+                          order_type: 'retail',
+                          order_number: undefined,
+                          total_amount: 1000, // TODO: Replace with actual price
+                          status: 'completed',
+                          payment_status: 'paid',
+                          payment_method: 'Card',
+                          shipping_address: { name: orderForm.name, alias: orderForm.alias, phone: orderForm.phone, address: orderForm.address },
+                          items: [{ product_name: 'HIV Self-Test Kit', quantity: 1, unit_price: 1000, total_price: 1000, pharmacy_id: selectedPharmacy?.id, pharmacy_name: selectedPharmacy?.name }],
                         };
-                        const response = await fetch('/api/create-checkout-session', {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify(stripeBody),
+                        await orderService.createPlatformOrder(orderData);
+                        // Add financial transaction
+                        await financialService.addTransaction({
+                          type: 'income',
+                          amount: 1000, // TODO: Replace with actual price
+                          category: 'Sales',
+                          description: 'HIV Self-Test Kit',
+                          transaction_date: new Date().toISOString().split('T')[0],
                         });
-                        const result = await response.json();
-                        if (result.url) {
-                          window.location.href = result.url;
-                          return;
-                        } else {
-                          setOrderForm(f => ({ ...f, loading: false, error: result.error || 'Stripe checkout failed.' }));
-                          return;
-                        }
+                        setOrderForm(f => ({ ...f, loading: false, success: true }));
                       } catch (err: any) {
-                        setOrderForm(f => ({ ...f, loading: false, error: err.message || 'Stripe checkout failed.' }));
-                        return;
+                        setOrderForm(f => ({ ...f, loading: false, error: err.message || 'Failed to place order.' }));
                       }
                     }}>
-                      Pay with Stripe
-                    </Button>
+                      <Input className="bg-blue-50 border-blue-200 focus:ring-blue-500" placeholder="Cardholder Name" required />
+                      <Input className="bg-blue-50 border-blue-200 focus:ring-blue-500" placeholder="Card Number" required maxLength={19} />
+                      <div className="flex gap-2">
+                        <Input className="bg-blue-50 border-blue-200 focus:ring-blue-500" placeholder="MM/YY" required maxLength={5} />
+                        <Input className="bg-blue-50 border-blue-200 focus:ring-blue-500" placeholder="CVC" required maxLength={4} />
+                      </div>
+                      <Button className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white text-lg py-3 rounded-lg shadow-md hover:from-blue-700 hover:to-green-600 transition-all duration-200" type="submit" disabled={orderForm.loading}>
+                        {orderForm.loading ? 'Processing...' : 'Pay with Card'}
+                      </Button>
+                    </form>
                   ) : (
                     <Button className="mt-4 w-full" type="submit" disabled={orderForm.loading}>{orderForm.loading ? 'Placing Order...' : 'Place Order'}</Button>
                   )}

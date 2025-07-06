@@ -7,6 +7,9 @@ import { useToast } from "@/hooks/use-toast";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Json } from '@/integrations/supabase/types';
+import { Input } from '@/components/ui/input';
+import { orderService } from '@/services/orderService';
+import { inventoryService } from '@/services/inventoryService';
 
 interface CartItem {
   id: string;
@@ -23,6 +26,10 @@ const Cart = () => {
   const navigate = useNavigate();
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [cardDetails, setCardDetails] = useState({ name: '', number: '', expiry: '', cvc: '' });
+  const [cardLoading, setCardLoading] = useState(false);
+  const [cardType, setCardType] = useState<'visa' | 'mastercard' | ''>('');
 
   useEffect(() => {
     fetchCart();
@@ -247,42 +254,103 @@ const Cart = () => {
                   </div>
                 </div>
                 <Button
-                  className="w-full flex items-center gap-2 bg-gradient-to-r from-blue-600 to-green-500 text-white text-lg py-3"
-                  onClick={async () => {
-                    setIsLoading(true);
-                    try {
-                      const response = await fetch("/api/create-checkout-session", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                          amount: Math.round(getTotalPrice() * 100),
-                          currency: "usd",
-                          productName: `Bepawa Order for ${user?.email}`,
-                          success_url: window.location.origin + "/checkout-success",
-                          cancel_url: window.location.origin + "/cart",
-                        }),
-                      });
-                      const data = await response.json();
-                      if (data.url) {
-                        window.location.href = data.url;
-                      } else {
-                        throw new Error(data.error || "Failed to create checkout session");
-                      }
-                    } catch (err) {
-                      toast({
-                        title: "Checkout Error",
-                        description: err.message || "Could not start checkout.",
-                        variant: "destructive",
-                      });
-                    } finally {
-                      setIsLoading(false);
-                    }
-                  }}
-                  disabled={isLoading || cartItems.length === 0}
+                  className="w-full mt-2 flex items-center gap-2 bg-gradient-to-r from-green-600 to-blue-500 text-white text-lg py-3"
+                  onClick={() => setShowCardForm((v) => !v)}
+                  disabled={isLoading || cardLoading || cartItems.length === 0}
                 >
                   <CreditCard className="h-5 w-5" />
-                  {isLoading ? "Redirecting..." : "Checkout with Stripe"}
+                  {cardLoading ? "Processing..." : "Pay with Card"}
                 </Button>
+                {showCardForm && (
+                  <Card className="max-w-md mx-auto mt-8 shadow-lg border-2 border-blue-100">
+                    <CardHeader>
+                      <CardTitle className="text-2xl font-bold text-blue-700 mb-2">Pay with Card</CardTitle>
+                      <div className="flex gap-4 mb-4">
+                        <button type="button" className={`p-2 rounded-lg border-2 ${cardType==='visa' ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`} onClick={()=>setCardType('visa')}>
+                          <img src="/visa.png" alt="Visa" className="h-8" />
+                        </button>
+                        <button type="button" className={`p-2 rounded-lg border-2 ${cardType==='mastercard' ? 'border-yellow-500 bg-yellow-50' : 'border-gray-200'}`} onClick={()=>setCardType('mastercard')}>
+                          <img src="/mastercard.png" alt="Mastercard" className="h-8" />
+                        </button>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <form
+                        className="space-y-4"
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setCardLoading(true);
+                          try {
+                            // Simulate payment delay
+                            await new Promise((res) => setTimeout(res, 1200));
+                            // Create order in DB
+                            const order = await orderService.createPlatformOrder({
+                              user_id: user.id,
+                              order_type: 'retail',
+                              order_number: undefined,
+                              total_amount: getTotalPrice(),
+                              status: 'completed',
+                              payment_status: 'paid',
+                              items: cartItems,
+                            });
+                            // Deduct stock for each item
+                            for (const item of cartItems) {
+                              const product = await inventoryService.getProduct(item.id);
+                              if (product) {
+                                await inventoryService.updateStock(item.id, Math.max(0, product.stock - item.quantity), 'Card payment');
+                              }
+                            }
+                            await clearCart();
+                            toast({ title: 'Payment Successful', description: 'Your order has been placed!' });
+                            navigate('/checkout-success');
+                          } catch (err) {
+                            toast({ title: 'Payment Error', description: err.message || 'Could not complete payment.', variant: 'destructive' });
+                          } finally {
+                            setCardLoading(false);
+                            setShowCardForm(false);
+                          }
+                        }}
+                      >
+                        <Input
+                          placeholder="Cardholder Name"
+                          value={cardDetails.name}
+                          onChange={e => setCardDetails({ ...cardDetails, name: e.target.value })}
+                          required
+                          className="bg-blue-50 border-blue-200 focus:ring-blue-500"
+                        />
+                        <Input
+                          placeholder="Card Number"
+                          value={cardDetails.number}
+                          onChange={e => setCardDetails({ ...cardDetails, number: e.target.value })}
+                          required
+                          maxLength={19}
+                          className="bg-blue-50 border-blue-200 focus:ring-blue-500"
+                        />
+                        <div className="flex gap-2">
+                          <Input
+                            placeholder="MM/YY"
+                            value={cardDetails.expiry}
+                            onChange={e => setCardDetails({ ...cardDetails, expiry: e.target.value })}
+                            required
+                            maxLength={5}
+                            className="bg-blue-50 border-blue-200 focus:ring-blue-500"
+                          />
+                          <Input
+                            placeholder="CVC"
+                            value={cardDetails.cvc}
+                            onChange={e => setCardDetails({ ...cardDetails, cvc: e.target.value })}
+                            required
+                            maxLength={4}
+                            className="bg-blue-50 border-blue-200 focus:ring-blue-500"
+                          />
+                        </div>
+                        <Button type="submit" className="w-full bg-gradient-to-r from-blue-600 to-green-500 text-white text-lg py-3 rounded-lg shadow-md hover:from-blue-700 hover:to-green-600 transition-all duration-200" disabled={cardLoading}>
+                          {cardLoading ? 'Processing...' : 'Pay Now'}
+                        </Button>
+                      </form>
+                    </CardContent>
+                  </Card>
+                )}
               </CardContent>
             </Card>
           </div>

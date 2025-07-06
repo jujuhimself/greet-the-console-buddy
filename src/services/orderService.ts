@@ -69,6 +69,20 @@ export interface PlatformOrder {
   updated_at: string;
 }
 
+export type PlatformOrderCreate = {
+  user_id: string;
+  order_type?: 'retail' | 'wholesale' | 'prescription' | 'lab';
+  order_number?: string;
+  total_amount: number;
+  status: string;
+  payment_status: string;
+  payment_method?: string;
+  shipping_address?: any;
+  billing_address?: any;
+  items: any[];
+  notes?: string;
+};
+
 class OrderService {
   async getOrderItems(orderId: string): Promise<OrderItem[]> {
     const { data, error } = await supabase
@@ -161,7 +175,7 @@ class OrderService {
   }
 
   // New function to create platform orders
-  async createPlatformOrder(orderData: Omit<PlatformOrder, 'id' | 'created_at' | 'updated_at'>): Promise<PlatformOrder> {
+  async createPlatformOrder(orderData: PlatformOrderCreate): Promise<PlatformOrder> {
     const { data, error } = await supabase
       .from('orders')
       .insert({

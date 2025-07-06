@@ -8,6 +8,7 @@ import { dataService } from '@/services/dataService';
 import { inventoryService } from '@/services/inventoryService';
 import { useAuth } from '@/contexts/AuthContext';
 import { analyticsService } from '@/services/analyticsService';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AnalyticsData {
   revenue: { period: string; amount: number; }[];
@@ -42,18 +43,26 @@ export const AnalyticsDashboard = () => {
         const start = startDate.toISOString().split('T')[0];
         const end = endDate.toISOString().split('T')[0];
 
-        // Fetch sales analytics
-        const sales = await analyticsService.getSalesAnalytics(start, end);
-        // Revenue trend
-        setRevenueData(sales.map(s => ({ period: s.date, amount: s.total_sales })));
-        // Orders trend
-        setOrdersData(sales.map(s => ({ period: s.date, count: s.total_orders })));
+        // Fetch real-time sales/orders from orders table
+        let orderQuery = supabase.from('orders').select('*');
+        if (user.role === 'retail') {
+          orderQuery = orderQuery.eq('pharmacy_id', user.id);
+        } else if (user.role === 'wholesale') {
+          orderQuery = orderQuery.eq('wholesaler_id', user.id);
+        }
+        orderQuery = orderQuery.gte('created_at', start).lte('created_at', end).in('status', ['completed', 'paid']);
+        const { data: orders, error: ordersError } = await orderQuery;
+        if (ordersError) throw ordersError;
+        const totalRevenue = (orders || []).reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+        const totalOrders = (orders || []).length;
+        setRevenueData([{ period: `${start} - ${end}`, amount: totalRevenue }]);
+        setOrdersData([{ period: `${start} - ${end}`, count: totalOrders }]);
         // Top products (by items sold)
         // If you want to show real top products, fetch from product_analytics or join with products
         setTopProducts([]); // No real top products logic yet
         // Customer metrics
         setCustomerMetrics({
-          newCustomers: sales.reduce((sum, s) => sum + (s.new_customers || 0), 0),
+          newCustomers: 0, // Not available in current schema
           returningCustomers: 0, // Not available in current schema
           totalCustomers: 0 // Will be set below
         });
