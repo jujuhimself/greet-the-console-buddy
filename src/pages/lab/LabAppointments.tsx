@@ -8,6 +8,14 @@ import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import AppointmentScheduler from "@/components/lab/AppointmentScheduler";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogFooter,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface LabAppointment {
   id: string;
@@ -28,6 +36,9 @@ const LabAppointments = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('all');
   const [showAppointmentScheduler, setShowAppointmentScheduler] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<LabAppointment | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -37,27 +48,50 @@ const LabAppointments = () => {
 
   const fetchAppointments = async () => {
     try {
-      const { data, error } = await supabase
+      // 1. Fetch all lab appointments
+      const { data: appointmentsData, error: appointmentsError } = await supabase
         .from('appointments')
         .select('*')
         .eq('provider_type', 'lab')
         .order('appointment_date', { ascending: true });
 
-      if (error) throw error;
+      if (appointmentsError) throw appointmentsError;
+      if (!appointmentsData || appointmentsData.length === 0) {
+        setAppointments([]);
+        setIsLoading(false);
+        return;
+      }
 
-      // Transform the data to match our interface
-      const typedAppointments: LabAppointment[] = (data || []).map(apt => ({
-        id: apt.id,
-        user_id: apt.user_id,
-        service_type: apt.service_type,
-        appointment_date: apt.appointment_date,
-        appointment_time: apt.appointment_time,
-        status: apt.status as 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled',
-        notes: apt.notes || undefined,
-        patient_name: 'Patient Name', // Will need proper patient data
-        patient_phone: 'Patient Phone' // Will need proper patient data
-      }));
+      // 2. Get all unique user_ids
+      const userIds = [...new Set(appointmentsData.map(a => a.user_id))];
 
+      // 3. Fetch all profiles for those user_ids
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, name, phone')
+        .in('id', userIds);
+
+      if (profilesError) throw profilesError;
+      const profilesMap = new Map();
+      (profilesData || []).forEach(profile => {
+        profilesMap.set(profile.id, profile);
+      });
+
+      // 4. Merge profile info into appointments
+      const typedAppointments: LabAppointment[] = appointmentsData.map(apt => {
+        const profile = profilesMap.get(apt.user_id);
+        return {
+          id: apt.id,
+          user_id: apt.user_id,
+          service_type: apt.service_type,
+          appointment_date: apt.appointment_date,
+          appointment_time: apt.appointment_time,
+          status: apt.status as 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled',
+          notes: apt.notes || undefined,
+          patient_name: profile?.name || 'Unknown',
+          patient_phone: profile?.phone || 'Unknown',
+        };
+      });
       setAppointments(typedAppointments);
     } catch (error) {
       console.error('Error fetching appointments:', error);
@@ -205,10 +239,10 @@ const LabAppointments = () => {
                   )}
 
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedAppointment(appointment); setShowDetailsModal(true); }}>
                       View Details
                     </Button>
-                    <Button variant="outline" size="sm">
+                    <Button variant="outline" size="sm" onClick={() => { setSelectedAppointment(appointment); setShowUpdateModal(true); }}>
                       Update Status
                     </Button>
                   </div>
@@ -218,6 +252,46 @@ const LabAppointments = () => {
           </div>
         )}
       </div>
+      {/* Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Appointment Details</DialogTitle>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="space-y-2">
+              <div><b>Service:</b> {selectedAppointment.service_type}</div>
+              <div><b>Patient Name:</b> {selectedAppointment.patient_name}</div>
+              <div><b>Phone:</b> {selectedAppointment.patient_phone}</div>
+              <div><b>Date:</b> {new Date(selectedAppointment.appointment_date).toLocaleDateString()}</div>
+              <div><b>Time:</b> {selectedAppointment.appointment_time}</div>
+              <div><b>Status:</b> {selectedAppointment.status}</div>
+              {selectedAppointment.notes && <div><b>Notes:</b> {selectedAppointment.notes}</div>}
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setShowDetailsModal(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {/* Update Status Modal */}
+      <Dialog open={showUpdateModal} onOpenChange={setShowUpdateModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Update Appointment</DialogTitle>
+          </DialogHeader>
+          {selectedAppointment && (
+            <div className="space-y-2">
+              <div><b>Current Status:</b> {selectedAppointment.status}</div>
+              {/* Add status update, reschedule, cancel logic here */}
+              <Button variant="destructive" onClick={() => {/* implement cancel logic */}}>Cancel Appointment</Button>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => setShowUpdateModal(false)}>Close</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
