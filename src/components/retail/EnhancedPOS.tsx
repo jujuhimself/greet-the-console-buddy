@@ -46,6 +46,7 @@ const EnhancedPOS = () => {
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [showReceipt, setShowReceipt] = useState(false);
   const [currentReceipt, setCurrentReceipt] = useState<Receipt | null>(null);
+  const [staffName, setStaffName] = useState('');
 
   useEffect(() => {
     fetchProducts();
@@ -60,6 +61,19 @@ const EnhancedPOS = () => {
       )
     );
   }, [searchTerm, products]);
+
+  useEffect(() => {
+    if (user?.id) {
+      supabase
+        .from('profiles')
+        .select('name, email')
+        .eq('id', user.id)
+        .single()
+        .then(({ data }) => {
+          setStaffName(data?.name || data?.email || user.id);
+        });
+    }
+  }, [user]);
 
   const fetchProducts = async () => {
     if (!user) return;
@@ -226,7 +240,7 @@ const EnhancedPOS = () => {
         total: getCartTotal(),
         payment_method: paymentMethod,
         customer_name: customerName,
-        staff_name: user.name || user.email,
+        staff_name: staffName,
         timestamp: new Date().toLocaleString()
       };
 
@@ -491,8 +505,10 @@ const EnhancedPOS = () => {
                 <h3 className="font-bold">PHARMACY RECEIPT</h3>
                 <p className="text-sm text-gray-600">Receipt ID: {currentReceipt.id}</p>
                 <p className="text-sm text-gray-600">{currentReceipt.timestamp}</p>
-                {currentReceipt.customer_name && (
+                {currentReceipt.customer_name ? (
                   <p className="text-sm text-gray-600">Customer: {currentReceipt.customer_name}</p>
+                ) : (
+                  <p className="text-sm text-gray-600">Customer: Walk-in</p>
                 )}
                 <p className="text-sm text-gray-600">Staff: {currentReceipt.staff_name}</p>
               </div>

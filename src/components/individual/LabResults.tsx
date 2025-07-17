@@ -21,15 +21,31 @@ interface LabResultsProps {
   labAppointments: LabAppointment[];
 }
 
-const LabResults = ({ labAppointments }: LabResultsProps) => {
+const LabResults = () => {
   const { user } = useAuth();
+  const [results, setResults] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!user) return;
+    setIsLoading(true);
+    supabase
+      .from('lab_results')
+      .select('*')
+      .eq('patient_id', user.id)
+      .order('created_at', { ascending: false })
+      .then(({ data, error }) => {
+        setResults(data || []);
+        setIsLoading(false);
+      });
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     const colors = {
-      scheduled: 'bg-blue-100 text-blue-800',
-      confirmed: 'bg-green-100 text-green-800',
-      completed: 'bg-green-100 text-green-800',
+      draft: 'bg-yellow-100 text-yellow-800',
+      review: 'bg-blue-100 text-blue-800',
+      final: 'bg-green-100 text-green-800',
+      approved: 'bg-green-100 text-green-800',
       cancelled: 'bg-red-100 text-red-800',
       pending: 'bg-yellow-100 text-yellow-800'
     };
@@ -38,27 +54,6 @@ const LabResults = ({ labAppointments }: LabResultsProps) => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString();
-  };
-
-  const formatTime = (timeString: string) => {
-    if (!timeString) return '';
-    return timeString.substring(0, 5); // Show HH:MM format
-  };
-
-  const hasResults = (notes?: string) => {
-    return notes && notes.includes('Result:');
-  };
-
-  const extractResult = (notes?: string) => {
-    if (!notes) return '';
-    const resultMatch = notes.match(/Result:\s*(.+?)(?:\n|$)/);
-    return resultMatch ? resultMatch[1] : '';
-  };
-
-  const extractFileUrl = (notes?: string) => {
-    if (!notes) return '';
-    const fileMatch = notes.match(/File uploaded:\s*(.+?)(?:\n|$)/);
-    return fileMatch ? fileMatch[1] : '';
   };
 
   if (isLoading) {
@@ -86,47 +81,46 @@ const LabResults = ({ labAppointments }: LabResultsProps) => {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {labAppointments.length === 0 ? (
+        {results.length === 0 ? (
           <div className="text-center py-4 text-gray-500">
-            No lab appointments found.
+            No lab results found.
           </div>
         ) : (
           <div className="space-y-3">
-            {labAppointments.map((appointment) => (
-              <div key={appointment.id} className="border rounded-lg p-3 hover:bg-gray-50">
+            {results.map((result) => (
+              <div key={result.id} className="border rounded-lg p-3 hover:bg-gray-50">
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
                     <Calendar className="h-4 w-4 text-gray-500" />
-                    <span className="font-medium">{formatDate(appointment.appointment_date)}</span>
-                    {appointment.appointment_time && (
-                      <>
-                        <Clock className="h-4 w-4 text-gray-500" />
-                        <span className="text-sm text-gray-600">{formatTime(appointment.appointment_time)}</span>
-                      </>
-                    )}
+                    <span className="font-medium">{formatDate(result.created_at)}</span>
                   </div>
-                  <Badge className={getStatusColor(appointment.status)}>
-                    {appointment.status}
+                  <Badge className={getStatusColor(result.status)}>
+                    {result.status}
                   </Badge>
                 </div>
                 <div className="text-sm text-gray-700 mb-2">
-                  <strong>Test:</strong> {appointment.service_type}
+                  <strong>Test:</strong> {result.test_type}
                 </div>
-                {hasResults(appointment.notes) && (
+                {result.result_data && (
                   <div className="bg-green-50 border border-green-200 rounded p-3 mb-2">
                     <div className="flex items-start gap-2">
                       <FileText className="h-4 w-4 text-green-600 mt-0.5" />
                       <div className="flex-1">
                         <div className="text-sm font-medium text-green-800 mb-1">Results Available</div>
-                        <div className="text-sm text-green-700">
-                          {extractResult(appointment.notes)}
-                        </div>
-                        {extractFileUrl(appointment.notes) && (
+                        {/* Show notes as plain text if present */}
+                        {result.result_data.notes ? (
+                          <div className="text-sm text-green-700">{result.result_data.notes}</div>
+                        ) : (
+                          <div className="text-sm text-green-700">
+                            <pre className="whitespace-pre-wrap">{JSON.stringify(result.result_data, null, 2)}</pre>
+                          </div>
+                        )}
+                        {result.result_file_url && (
                           <Button
                             variant="outline"
                             size="sm"
                             className="mt-2"
-                            onClick={() => window.open(extractFileUrl(appointment.notes), '_blank')}
+                            onClick={() => window.open(result.result_file_url, '_blank')}
                           >
                             <Download className="h-3 w-3 mr-1" />
                             Download Report
@@ -136,11 +130,11 @@ const LabResults = ({ labAppointments }: LabResultsProps) => {
                     </div>
                   </div>
                 )}
-                {appointment.notes && !hasResults(appointment.notes) && (
+                {result.notes && (
                   <div className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
                     <div className="flex items-start gap-1">
                       <FileText className="h-3 w-3 mt-0.5 flex-shrink-0" />
-                      <span>{appointment.notes}</span>
+                      <span>{result.notes}</span>
                     </div>
                   </div>
                 )}

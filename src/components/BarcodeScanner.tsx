@@ -10,13 +10,14 @@ import { useAuth } from "@/contexts/AuthContext";
 import QrReader from "react-qr-barcode-scanner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
+// Update Product interface to match backend fields
 interface Product {
   id: string;
   name: string;
-  barcode: string;
+  sku: string;
   stock: number;
-  minStock: number;
-  price: number;
+  min_stock: number;
+  sell_price: number;
   category: string;
 }
 
@@ -46,10 +47,10 @@ const BarcodeScanner = () => {
           supaProducts.map((p: any) => ({
             id: p.id,
             name: p.name,
-            barcode: p.sku || p.id,
+            sku: p.sku || p.id,
             stock: p.stock,
-            minStock: p.min_stock,
-            price: p.sell_price || p.price || 0,
+            min_stock: p.min_stock,
+            sell_price: p.sell_price || p.price || 0,
             category: p.category || "-"
           }))
         );
@@ -69,14 +70,24 @@ const BarcodeScanner = () => {
     if (lastScanned === code) return;
     setLastScanned(code);
     setScannedCode(code);
-    const product = products.find(p => p.barcode === code || p.id === code);
+    const product = products.find(p => p.sku === code || p.id === code);
     if (product) {
       // Fetch real details from backend
       const realProduct = await inventoryService.getProduct(product.id);
-      setFoundProduct(realProduct || product);
+      // Ensure all required fields are present
+      const mergedProduct: Product = {
+        id: realProduct?.id || product.id,
+        name: realProduct?.name || product.name,
+        sku: realProduct?.sku || realProduct?.barcode || product.sku || product.id,
+        stock: realProduct?.stock ?? product.stock,
+        min_stock: realProduct?.min_stock ?? realProduct?.minStock ?? product.min_stock,
+        sell_price: realProduct?.sell_price || realProduct?.price || product.sell_price || 0,
+        category: realProduct?.category || product.category || "-"
+      };
+      setFoundProduct(mergedProduct);
       toast({
         title: "Product Found!",
-        description: `${realProduct?.name || product.name} - Stock: ${realProduct?.stock ?? product.stock}`,
+        description: `${mergedProduct.name} - Stock: ${mergedProduct.stock}`,
       });
     } else {
       setPendingBarcode(code);
@@ -105,10 +116,10 @@ const BarcodeScanner = () => {
   const simulateBarcodeScan = () => {
     if (products.length === 0) return;
     const randomProduct = products[Math.floor(Math.random() * products.length)];
-    handleScan(randomProduct.barcode);
+    handleScan(randomProduct.sku);
   };
 
-  const lowStockProducts = products.filter(p => p.stock <= p.minStock);
+  const lowStockProducts = products.filter(p => p.stock <= p.min_stock);
 
   const handleAddProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -116,11 +127,11 @@ const BarcodeScanner = () => {
     try {
       await inventoryService.createProduct({
         name: addProduct.name,
-        sku: addProduct.barcode,
+        sku: addProduct.barcode, // backend expects 'sku'
         sell_price: Number(addProduct.price),
         category: addProduct.category,
         stock: Number(addProduct.stock),
-        min_stock_level: Number(addProduct.minStock),
+        min_stock: Number(addProduct.minStock), // backend expects 'min_stock'
         status: 'in-stock',
         buy_price: 0,
       });
@@ -239,11 +250,11 @@ const BarcodeScanner = () => {
               <h3 className="font-semibold text-lg">{foundProduct.name}</h3>
               <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
                 <p>Stock: <span className="font-medium">{foundProduct.stock}</span></p>
-                <p>Price: <span className="font-medium">TZS {foundProduct.price.toLocaleString()}</span></p>
+                <p>Price: <span className="font-medium">TZS {foundProduct.sell_price.toLocaleString()}</span></p>
                 <p>Category: <span className="font-medium">{foundProduct.category}</span></p>
-                <p>Barcode: <span className="font-medium">{foundProduct.barcode}</span></p>
+                <p>Barcode: <span className="font-medium">{foundProduct.sku}</span></p>
               </div>
-              {foundProduct.stock <= foundProduct.minStock && (
+              {foundProduct.stock <= foundProduct.min_stock && (
                 <Badge variant="destructive" className="mt-2">
                   Low Stock Alert
                 </Badge>
@@ -268,12 +279,9 @@ const BarcodeScanner = () => {
                 <div key={product.id} className="flex justify-between items-center p-3 border rounded-lg bg-orange-50">
                   <div>
                     <p className="font-medium">{product.name}</p>
-                    <p className="text-sm text-gray-600">Current: {product.stock} | Min: {product.minStock}</p>
+                    <p className="text-sm text-gray-600">Current: {product.stock} | Min: {product.min_stock}</p>
                   </div>
-                  <Button size="sm">
-                    <Package className="h-4 w-4 mr-1" />
-                    Reorder
-                  </Button>
+                  {/* Reorder button removed for both wholesaler and retailer */}
                 </div>
               ))}
             </div>

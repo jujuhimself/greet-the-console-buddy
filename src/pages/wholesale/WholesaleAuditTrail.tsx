@@ -9,6 +9,7 @@ import { Search, Shield, Activity, Package, DollarSign, Users } from "lucide-rea
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { auditService } from "@/services/auditService";
+import { supabase } from '@/integrations/supabase/client';
 
 interface AuditLogEntry {
   id: string;
@@ -32,6 +33,8 @@ const WholesaleAuditTrail = () => {
   const [categoryFilter, setCategoryFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
   const [dateFilter, setDateFilter] = useState("");
+  const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+  const filteredSalesLogs = filteredLogs.filter(log => log.category === 'sales');
 
   useEffect(() => {
     fetchAuditLogs();
@@ -40,6 +43,23 @@ const WholesaleAuditTrail = () => {
   useEffect(() => {
     filterLogs();
   }, [auditLogs, searchTerm, categoryFilter, actionFilter, dateFilter]);
+
+  useEffect(() => {
+    if (filteredSalesLogs.length > 0) {
+      const userIds = Array.from(new Set(filteredSalesLogs.map(log => log.user_id)));
+      supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds)
+        .then(({ data }) => {
+          const map: Record<string, string> = {};
+          (data || []).forEach((p: any) => {
+            map[p.id] = p.name || p.email || p.id;
+          });
+          setUserProfiles(map);
+        });
+    }
+  }, [filteredSalesLogs]);
 
   const fetchAuditLogs = async () => {
     try {
@@ -160,7 +180,6 @@ const WholesaleAuditTrail = () => {
 
   const inventoryLogs = filteredLogs.filter(log => log.category === 'inventory');
   const authLogs = filteredLogs.filter(log => log.category === 'authentication');
-  const salesLogs = filteredLogs.filter(log => log.category === 'sales');
 
   return (
     <div className="w-full max-w-6xl mx-auto px-2 sm:px-4 md:px-8">
@@ -226,7 +245,7 @@ const WholesaleAuditTrail = () => {
           <TabsTrigger value="all">All Logs ({filteredLogs.length})</TabsTrigger>
           <TabsTrigger value="inventory">Inventory ({inventoryLogs.length})</TabsTrigger>
           <TabsTrigger value="auth">Authentication ({authLogs.length})</TabsTrigger>
-          <TabsTrigger value="sales">Sales ({salesLogs.length})</TabsTrigger>
+          <TabsTrigger value="sales">Sales ({filteredSalesLogs.length})</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -404,7 +423,7 @@ const WholesaleAuditTrail = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {salesLogs.slice(0, 30).map((log) => (
+                  {filteredSalesLogs.slice(0, 30).map((log) => (
                     <TableRow key={log.id}>
                       <TableCell className="font-mono text-sm">
                         {new Date(log.created_at).toLocaleString()}
@@ -423,7 +442,7 @@ const WholesaleAuditTrail = () => {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {salesLogs.length === 0 && (
+                  {filteredSalesLogs.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={5} className="text-center py-8 text-gray-500">
                         No sales activity found

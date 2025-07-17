@@ -28,11 +28,22 @@ export function useLabDashboard() {
         throw appointmentsError;
       }
 
-      console.log('Raw appointments data:', appointmentsData);
+      // Two-step fetch: get all user_ids
+      const userIds = [...new Set((appointmentsData || []).map((a: any) => a.user_id))];
+      let profilesMap: Record<string, { name?: string; email?: string }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, name, email')
+          .in('id', userIds);
+        (profiles || []).forEach((p: any) => {
+          profilesMap[p.id] = { name: p.name, email: p.email };
+        });
+      }
 
       const transformedAppointments: Appointment[] = (appointmentsData || []).map((apt: any) => ({
         id: apt.id, // appointment.id
-        patientName: apt.patient_name || 'Unknown Patient',
+        patientName: profilesMap[apt.user_id]?.name || profilesMap[apt.user_id]?.email || 'Unknown Patient',
         testType: apt.service_type || 'Lab Test',
         date: apt.appointment_date || today,
         time: apt.appointment_time || '',
@@ -45,7 +56,7 @@ export function useLabDashboard() {
       // For now, use the same appointments as test results (since we don't have separate results yet)
       const transformedResults: TestResult[] = (appointmentsData || []).map((apt: any) => ({
         id: apt.id,
-        patientName: apt.patient_name || 'Unknown Patient',
+        patientName: profilesMap[apt.user_id]?.name || profilesMap[apt.user_id]?.email || 'Unknown Patient',
         testType: apt.service_type || 'Lab Test',
         completedDate: apt.status === 'completed' ? new Date(apt.updated_at).toLocaleDateString() : 'Pending',
         status: apt.status || 'pending',

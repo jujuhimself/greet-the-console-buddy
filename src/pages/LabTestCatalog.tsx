@@ -8,6 +8,10 @@ import { TestTube, Search, Clock, DollarSign, Plus } from "lucide-react";
 import { useLabTests, useCreateLabTest } from "@/hooks/useLab";
 import { useToast } from "@/hooks/use-toast";
 import type { LabTest } from "@/services/labService";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { supabase } from '@/integrations/supabase/client';
 
 const LabTestCatalog = () => {
   const { toast } = useToast();
@@ -15,6 +19,17 @@ const LabTestCatalog = () => {
   const createLabTestMutation = useCreateLabTest();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("all");
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    test_name: '',
+    category: '',
+    price: '',
+    sample_type: '',
+    preparation_instructions: '',
+    normal_range: '',
+    turnaround_time_hours: '',
+    description: ''
+  });
 
   // Get unique categories from tests
   const categories = ['all', ...Array.from(new Set(tests?.map(test => test.category) || []))];
@@ -25,6 +40,37 @@ const LabTestCatalog = () => {
     const matchesCategory = selectedCategory === 'all' || test.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
+
+  const fetchTests = async () => {
+    const { data } = await supabase.from('lab_tests').select('*');
+    // setTests(data || []); // This line was removed as per the edit hint
+  };
+
+  useEffect(() => {
+    fetchTests();
+  }, []);
+
+  const handleAddTest = async () => {
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData?.user) return;
+    const test_code = form.test_name.replace(/\s+/g, '_').toUpperCase();
+    await supabase.from('lab_tests').insert({
+      test_name: form.test_name,
+      test_code,
+      category: form.category,
+      price: Number(form.price),
+      sample_type: form.sample_type,
+      preparation_instructions: form.preparation_instructions,
+      normal_range: form.normal_range,
+      turnaround_time_hours: Number(form.turnaround_time_hours),
+      description: form.description,
+      is_active: true,
+      user_id: userData.user.id
+    });
+    setShowAdd(false);
+    setForm({ test_name: '', category: '', price: '', sample_type: '', preparation_instructions: '', normal_range: '', turnaround_time_hours: '', description: '' });
+    fetchTests();
+  };
 
   if (isLoading) {
     return (
@@ -131,15 +177,7 @@ const LabTestCatalog = () => {
                   )}
                 </div>
 
-                <div className="flex gap-2">
-                  <Button className="flex-1" disabled={!test.is_active}>
-                    <Plus className="h-4 w-4 mr-1" />
-                    {test.is_active ? 'Book Test' : 'Unavailable'}
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    Details
-                  </Button>
-                </div>
+                {/* Remove any <Button> or <button> elements for Book Test and Details inside the test card */}
               </CardContent>
             </Card>
           ))}
@@ -159,6 +197,22 @@ const LabTestCatalog = () => {
           </Card>
         )}
       </div>
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add New Test</DialogTitle>
+          </DialogHeader>
+          <Input placeholder="Test Name" value={form.test_name} onChange={e => setForm({ ...form, test_name: e.target.value })} />
+          <Input placeholder="Category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} />
+          <Input placeholder="Price" type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} />
+          <Input placeholder="Sample Type" value={form.sample_type} onChange={e => setForm({ ...form, sample_type: e.target.value })} />
+          <Input placeholder="Normal Range" value={form.normal_range} onChange={e => setForm({ ...form, normal_range: e.target.value })} />
+          <Input placeholder="Turnaround Time (hours)" type="number" value={form.turnaround_time_hours} onChange={e => setForm({ ...form, turnaround_time_hours: e.target.value })} />
+          <Textarea placeholder="Preparation Instructions" value={form.preparation_instructions} onChange={e => setForm({ ...form, preparation_instructions: e.target.value })} />
+          <Textarea placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
+          <Button onClick={handleAddTest}>Save</Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

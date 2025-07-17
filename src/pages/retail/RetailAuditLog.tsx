@@ -4,8 +4,9 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import ExportButton from "@/components/ExportButton";
 import DateRangeFilter from "@/components/DateRangeFilter";
 import UserSelect from "@/components/UserSelect";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
+import { supabase } from '@/integrations/supabase/client';
 
 export default function RetailAuditLog() {
   const { user } = useAuth();
@@ -23,6 +24,25 @@ export default function RetailAuditLog() {
       const actOk = action === "all" || log.action === action;
       return dateOk && userOk && actOk;
     }), [logs, from, to, userId, action]);
+
+  const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (filtered.length > 0) {
+      const userIds = Array.from(new Set(filtered.map(log => log.user_id)));
+      supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds)
+        .then(({ data }) => {
+          const map: Record<string, string> = {};
+          (data || []).forEach((p: any) => {
+            map[p.id] = p.name || p.email || p.id;
+          });
+          setUserProfiles(map);
+        });
+    }
+  }, [filtered]);
 
   // Find distinct actions for filter
   const actions = Array.from(new Set(logs.map(log => log.action || ""))).filter(a => a);
@@ -83,7 +103,7 @@ export default function RetailAuditLog() {
                       <td>{log.action}</td>
                       <td className="capitalize">{log.resource_type}</td>
                       <td>{log.resource_id || "-"}</td>
-                      <td className="text-blue-800">{log.user_id}</td>
+                      <td className="text-blue-800">{userProfiles[log.user_id] || log.user_id}</td>
                       <td>{new Date(log.created_at).toLocaleString()}</td>
                       <td className="break-all">
                         {log.old_values && <code>{JSON.stringify(log.old_values)}</code>}

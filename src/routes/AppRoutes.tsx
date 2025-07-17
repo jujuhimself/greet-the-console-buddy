@@ -1,4 +1,4 @@
-import { Routes, Route } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import RouteGuard from "@/components/RouteGuard";
 import StaffManagement from '@/components/retail/StaffManagement';
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,6 +89,14 @@ import Pharmacies from "@/pages/Pharmacies";
 import NotFound from "@/pages/NotFound";
 import Analytics from "@/pages/Analytics";
 import CheckoutSuccess from '@/pages/CheckoutSuccess';
+
+const CreditManagementRedirect = () => {
+  const { user } = useAuth();
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role === 'wholesale') return <Navigate to="/wholesale/business-tools/credit" replace />;
+  if (user.role === 'retail') return <Navigate to="/credit" replace />;
+  return <Navigate to="/" replace />;
+};
 
 const AppRoutes = () => {
   const { user } = useAuth();
@@ -501,6 +509,9 @@ const AppRoutes = () => {
 
       {/* Order Success Route */}
       <Route path="/checkout-success" element={<CheckoutSuccess />} />
+
+      {/* Credit Management Redirect Route */}
+      <Route path="/credit-management" element={<CreditManagementRedirect />} />
 
       {/* Catch all - 404 */}
       <Route path="*" element={<NotFound />} />

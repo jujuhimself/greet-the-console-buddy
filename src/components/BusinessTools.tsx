@@ -4,48 +4,48 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { FaUsers, FaStore, FaBoxes, FaClipboardList, FaChartBar } from 'react-icons/fa';
 
-const tools = [
-  {
-    key: 'staff',
-    label: 'Staff Management',
-    icon: <FaUsers size={32} />,
-    path: '/staff',
-    roles: ['retail', 'wholesale'],
-  },
-  {
-    key: 'credit',
-    label: 'Credit/CRM',
-    icon: <FaStore size={32} />,
-    path: '/credit',
-    roles: ['retail', 'wholesale'],
-  },
-  {
-    key: 'adjustments',
-    label: 'Inventory Adjustments',
-    icon: <FaBoxes size={32} />,
-    path: '/inventory-adjustments',
-    roles: ['retail', 'wholesale'],
-  },
-  {
-    key: 'audit',
-    label: 'Audit Reports',
-    icon: <FaClipboardList size={32} />,
-    path: '/audit',
-    roles: ['retail', 'wholesale'],
-  },
-  {
-    key: 'analytics',
-    label: 'Analytics',
-    icon: <FaChartBar size={32} />,
-    path: '/analytics',
-    roles: ['retail', 'wholesale'],
-  },
-];
-
 const BusinessTools: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const role = user?.role;
+
+  const tools = [
+    {
+      key: 'staff',
+      label: 'Staff Management',
+      icon: <FaUsers size={32} />,
+      path: '/staff',
+      roles: ['retail', 'wholesale'],
+    },
+    {
+      key: 'credit',
+      label: 'Credit/CRM',
+      icon: <FaStore size={32} />,
+      path: user && user.role === 'wholesale' ? '/wholesale/business-tools/credit' : '/credit',
+      roles: ['retail', 'wholesale'],
+    },
+    {
+      key: 'adjustments',
+      label: 'Inventory Adjustments',
+      icon: <FaBoxes size={32} />,
+      path: '/inventory-adjustments',
+      roles: ['retail', 'wholesale'],
+    },
+    {
+      key: 'audit',
+      label: 'Audit Reports',
+      icon: <FaClipboardList size={32} />,
+      path: '/audit',
+      roles: ['retail', 'wholesale'],
+    },
+    {
+      key: 'analytics',
+      label: 'Analytics',
+      icon: <FaChartBar size={32} />,
+      path: '/analytics',
+      roles: ['retail', 'wholesale'],
+    },
+  ];
 
   const visibleTools = tools.filter(tool => tool.roles.includes(role));
 

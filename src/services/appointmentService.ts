@@ -64,12 +64,27 @@ class AppointmentService {
     }
 
     const { data, error } = await query.order('appointment_time', { ascending: true });
-
     if (error) throw error;
-    
+    if (!data || data.length === 0) return [];
+
+    // Two-step fetch: get all user_ids
+    const userIds = [...new Set(data.map((a: any) => a.user_id))];
+    let profilesMap: Record<string, { name?: string; phone?: string }> = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, name, phone')
+        .in('id', userIds);
+      (profiles || []).forEach((p: any) => {
+        profilesMap[p.id] = { name: p.name, phone: p.phone };
+      });
+    }
+
     return (data || []).map(apt => ({
       ...apt,
-      status: apt.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+      status: apt.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled',
+      patient_name: profilesMap[apt.user_id]?.name || undefined,
+      patient_phone: profilesMap[apt.user_id]?.phone || undefined,
     }));
   }
 

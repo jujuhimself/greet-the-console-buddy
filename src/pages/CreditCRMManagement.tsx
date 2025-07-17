@@ -9,55 +9,177 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
+interface CreditAccount {
+  id: string;
+  customer_id: string;
+  credit_limit: number;
+  available_credit: number;
+  current_balance: number;
+  status: string;
+  created_at: string;
+  customer_name?: string;
+  customer_contact?: string;
+}
+
+interface CreditTransaction {
+  id: string;
+  credit_account_id: string;
+  transaction_type: string;
+  amount: number;
+  reference?: string;
+  transaction_date: string;
+}
+
 const CreditCRMManagement: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [accounts, setAccounts] = useState<any[]>([]);
-  const [selectedAccount, setSelectedAccount] = useState<any | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
+  const [accounts, setAccounts] = useState<CreditAccount[]>([]);
+  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
+  const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState<CreditAccount | null>(null);
+  const [accountForm, setAccountForm] = useState({
+    customer_id: '',
+    credit_limit: 0
+  });
+  const [transactionForm, setTransactionForm] = useState({
+    transaction_type: 'payment',
+    amount: 0,
+    reference: ''
+  });
   const [search, setSearch] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [newCustomer, setNewCustomer] = useState({ name: '', contact: '', credit_limit: '' });
 
   useEffect(() => {
-    fetchAccounts();
+    fetchCreditAccounts();
+    fetchCustomers();
   }, []);
 
-  const fetchAccounts = async () => {
+  const fetchCreditAccounts = async () => {
     if (!user) return;
-    const { data, error } = await supabase
-      .from('credit_accounts')
-      .select('*')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (!error) setAccounts(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('credit_accounts')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      // Fetch customer details
+      const accountsWithCustomers = await Promise.all(
+        (data || []).map(async (account) => {
+          let customer = null;
+          if (account.customer_id) {
+            const { data: customerData } = await supabase
+              .from('profiles')
+              .select('name, email, phone')
+              .eq('id', account.customer_id)
+              .single();
+            customer = customerData;
+          }
+          return {
+            ...account,
+            customer_name: customer?.name || account.customer_name || 'Unknown',
+            customer_contact: customer?.phone || customer?.email || account.contact_info || '',
+          };
+        })
+      );
+      setAccounts(accountsWithCustomers);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to fetch credit accounts', variant: 'destructive' });
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, name, email, phone')
+        .eq('role', 'individual');
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error: any) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  const fetchTransactions = async (accountId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('credit_transactions')
+        .select('*')
+        .eq('credit_account_id', accountId)
+        .order('transaction_date', { ascending: false });
+      if (error) throw error;
+      setTransactions(data || []);
+    } catch (error: any) {
+      console.error('Error fetching transactions:', error);
+    }
+  };
+
+  const createCreditAccount = async () => {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from('credit_accounts')
+        .insert({
+          user_id: user.id,
+          customer_id: accountForm.customer_id,
+          credit_limit: accountForm.credit_limit,
+          available_credit: accountForm.credit_limit,
+          current_balance: 0,
+          status: 'active',
+        });
+      if (error) throw error;
+      toast({ title: 'Credit Account Created', description: 'New credit account created successfully' });
+      setAccountForm({ customer_id: '', credit_limit: 0 });
+      setIsAccountDialogOpen(false);
+      fetchCreditAccounts();
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to create credit account', variant: 'destructive' });
+    }
+  };
+
+  const createTransaction = async () => {
+    if (!selectedAccount) return;
+    try {
+      const { error: transactionError } = await supabase
+        .from('credit_transactions')
+        .insert({
+          credit_account_id: selectedAccount.id,
+          transaction_type: transactionForm.transaction_type,
+          amount: transactionForm.amount,
+          reference: transactionForm.reference,
+          transaction_date: new Date().toISOString(),
+        });
+      if (transactionError) throw transactionError;
+      // Update account balance
+      let newBalance = selectedAccount.current_balance;
+      let newAvailable = selectedAccount.available_credit;
+      if (transactionForm.transaction_type === 'credit') {
+        newBalance += transactionForm.amount;
+        newAvailable -= transactionForm.amount;
+      } else if (transactionForm.transaction_type === 'payment') {
+        newBalance -= transactionForm.amount;
+        newAvailable += transactionForm.amount;
+      }
+      const { error: updateError } = await supabase
+        .from('credit_accounts')
+        .update({ current_balance: newBalance, available_credit: newAvailable })
+        .eq('id', selectedAccount.id);
+      if (updateError) throw updateError;
+      toast({ title: 'Transaction Recorded', description: `${transactionForm.transaction_type} transaction recorded successfully` });
+      setTransactionForm({ transaction_type: 'payment', amount: 0, reference: '' });
+      setIsTransactionDialogOpen(false);
+      fetchCreditAccounts();
+      if (selectedAccount) fetchTransactions(selectedAccount.id);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error?.message || 'Failed to record transaction', variant: 'destructive' });
+    }
   };
 
   const filteredAccounts = accounts.filter(acc =>
     acc.customer_name?.toLowerCase().includes(search.toLowerCase())
   );
-
-  const handleAddCustomer = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
-    const { error } = await supabase.from('credit_accounts').insert({
-      customer_name: newCustomer.name,
-      contact_info: newCustomer.contact,
-      credit_limit: Number(newCustomer.credit_limit),
-      available_credit: Number(newCustomer.credit_limit),
-      current_balance: 0,
-      status: 'active',
-      user_id: user.id,
-    });
-    if (error) {
-      toast({ title: 'Error', description: 'Failed to add customer', variant: 'destructive' });
-    } else {
-      toast({ title: 'Customer added successfully' });
-      setIsAddDialogOpen(false);
-      setNewCustomer({ name: '', contact: '', credit_limit: '' });
-      fetchAccounts();
-    }
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 w-full space-y-6">
@@ -73,8 +195,8 @@ const CreditCRMManagement: React.FC = () => {
             onChange={e => setSearch(e.target.value)}
             className="w-64"
           />
-          <Button onClick={() => setIsAddDialogOpen(true)}>
-            Add Customer
+          <Button onClick={() => setIsAccountDialogOpen(true)}>
+            Add Credit Account
           </Button>
         </div>
       </div>
@@ -87,6 +209,7 @@ const CreditCRMManagement: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
                 <TableHead>Credit Limit</TableHead>
                 <TableHead>Available</TableHead>
                 <TableHead>Balance</TableHead>
@@ -97,7 +220,7 @@ const CreditCRMManagement: React.FC = () => {
             <TableBody>
               {filteredAccounts.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={7} className="text-center py-8 text-gray-500">
                     No credit accounts found.
                   </TableCell>
                 </TableRow>
@@ -105,6 +228,7 @@ const CreditCRMManagement: React.FC = () => {
                 filteredAccounts.map(acc => (
                   <TableRow key={acc.id}>
                     <TableCell>{acc.customer_name}</TableCell>
+                    <TableCell>{acc.customer_contact}</TableCell>
                     <TableCell>{acc.credit_limit}</TableCell>
                     <TableCell>{acc.available_credit}</TableCell>
                     <TableCell>{acc.current_balance}</TableCell>
@@ -114,8 +238,8 @@ const CreditCRMManagement: React.FC = () => {
                       </Badge>
                     </TableCell>
                     <TableCell>
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedAccount(acc); setShowDetails(true); }}>
-                        Details
+                      <Button size="sm" variant="outline" onClick={() => { setSelectedAccount(acc); setIsTransactionDialogOpen(true); fetchTransactions(acc.id); }}>
+                        Manage
                       </Button>
                     </TableCell>
                   </TableRow>
@@ -125,35 +249,46 @@ const CreditCRMManagement: React.FC = () => {
           </Table>
         </CardContent>
       </Card>
-      <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+      {/* Add Credit Account Dialog */}
+      <Dialog open={isAccountDialogOpen} onOpenChange={setIsAccountDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add New Customer</DialogTitle>
+            <DialogTitle>Add Credit Account</DialogTitle>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={handleAddCustomer}>
+          <div className="space-y-4">
             <div>
-              <label className="block mb-1 font-medium">Customer Name</label>
-              <Input value={newCustomer.name} onChange={e => setNewCustomer({ ...newCustomer, name: e.target.value })} required />
-            </div>
-            <div>
-              <label className="block mb-1 font-medium">Contact Info</label>
-              <Input value={newCustomer.contact} onChange={e => setNewCustomer({ ...newCustomer, contact: e.target.value })} required />
+              <label className="block mb-1 font-medium">Select Customer</label>
+              <select
+                className="w-full border rounded p-2"
+                value={accountForm.customer_id}
+                onChange={e => setAccountForm({ ...accountForm, customer_id: e.target.value })}
+              >
+                <option value="">Choose customer</option>
+                {customers.map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.email || c.phone})</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block mb-1 font-medium">Credit Limit</label>
-              <Input type="number" min={0} value={newCustomer.credit_limit} onChange={e => setNewCustomer({ ...newCustomer, credit_limit: e.target.value })} required />
+              <Input
+                type="number"
+                value={accountForm.credit_limit}
+                onChange={e => setAccountForm({ ...accountForm, credit_limit: Number(e.target.value) })}
+                placeholder="Enter credit limit"
+              />
             </div>
-            <div className="flex gap-2">
-              <Button type="submit" className="flex-1">Add Customer</Button>
-              <Button type="button" variant="outline" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
-            </div>
-          </form>
+            <Button onClick={createCreditAccount} className="w-full">
+              Create Account
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
-      <Dialog open={showDetails} onOpenChange={setShowDetails}>
+      {/* Transaction Dialog */}
+      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Account Details</DialogTitle>
+            <DialogTitle>Manage Account</DialogTitle>
           </DialogHeader>
           {selectedAccount && (
             <div className="space-y-4">
@@ -172,7 +307,60 @@ const CreditCRMManagement: React.FC = () => {
               <div>
                 <strong>Status:</strong> {selectedAccount.status}
               </div>
-              {/* TODO: Add CRM info, transaction history, grant/adjust credit, etc. */}
+              <div className="space-y-2">
+                <label className="block font-medium">Transaction Type</label>
+                <select
+                  className="w-full border rounded p-2"
+                  value={transactionForm.transaction_type}
+                  onChange={e => setTransactionForm({ ...transactionForm, transaction_type: e.target.value })}
+                >
+                  <option value="payment">Payment</option>
+                  <option value="credit">Credit</option>
+                </select>
+                <Input
+                  type="number"
+                  placeholder="Amount"
+                  value={transactionForm.amount}
+                  onChange={e => setTransactionForm({ ...transactionForm, amount: Number(e.target.value) })}
+                />
+                <Input
+                  placeholder="Reference (optional)"
+                  value={transactionForm.reference}
+                  onChange={e => setTransactionForm({ ...transactionForm, reference: e.target.value })}
+                />
+                <Button onClick={createTransaction} className="w-full">
+                  Record Transaction
+                </Button>
+              </div>
+              <div className="mt-6">
+                <h4 className="font-semibold mb-2">Transaction History</h4>
+                {transactions.length === 0 ? (
+                  <div className="text-gray-500 text-sm">No transactions found.</div>
+                ) : (
+                  <div className="max-h-48 overflow-y-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Date</TableHead>
+                          <TableHead>Type</TableHead>
+                          <TableHead>Amount</TableHead>
+                          <TableHead>Reference</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {transactions.map(tx => (
+                          <TableRow key={tx.id}>
+                            <TableCell>{new Date(tx.transaction_date).toLocaleDateString()}</TableCell>
+                            <TableCell>{tx.transaction_type}</TableCell>
+                            <TableCell>{tx.amount}</TableCell>
+                            <TableCell>{tx.reference}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </DialogContent>

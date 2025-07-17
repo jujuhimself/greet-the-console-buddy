@@ -31,7 +31,7 @@ interface Notification {
   type: "appointment_reminder" | "result_ready" | "critical_result" | "follow_up" | "system_alert";
   title: string;
   message: string;
-  recipient_id: string;
+  user_id: string;
   recipient_name: string;
   status: "pending" | "sent" | "failed" | "read";
   channel: "email" | "sms" | "push" | "in_app";
@@ -121,7 +121,7 @@ const SmartNotifications = () => {
           type: "appointment_reminder",
           title: "Appointment Reminder",
           message: "Reminder for CBC test tomorrow at 10:00 AM",
-          recipient_id: "patient1",
+          user_id: "patient1",
           recipient_name: "John Doe",
           status: "sent",
           channel: "email",
@@ -134,7 +134,7 @@ const SmartNotifications = () => {
           type: "result_ready",
           title: "Results Ready",
           message: "Your lipid panel results are now available",
-          recipient_id: "patient2",
+          user_id: "patient2",
           recipient_name: "Jane Smith",
           status: "pending",
           channel: "sms",
@@ -149,7 +149,7 @@ const SmartNotifications = () => {
   };
 
   const handleCreateNotification = () => {
-    if (!formData.template || !formData.recipient || !formData.scheduledAt) {
+    if (!formData.template || !formData.user_id || !formData.scheduledAt) {
       toast({
         title: "Missing Information",
         description: "Please fill in all required fields.",
@@ -166,7 +166,7 @@ const SmartNotifications = () => {
       type: template.type as any,
       title: template.subject,
       message: template.message,
-      recipient_id: formData.recipient,
+      user_id: formData.user_id,
       recipient_name: formData.recipientName || "Patient",
       status: "pending",
       channel: formData.channel,
@@ -478,11 +478,11 @@ const SmartNotifications = () => {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Recipient ID</Label>
+                <Label>User ID</Label>
                 <Input
-                  value={formData.recipient || ""}
-                  onChange={(e) => setFormData(prev => ({ ...prev, recipient: e.target.value }))}
-                  placeholder="Enter patient ID"
+                  value={formData.user_id || ""}
+                  onChange={(e) => setFormData(prev => ({ ...prev, user_id: e.target.value }))}
+                  placeholder="Enter patient user_id"
                 />
               </div>
               

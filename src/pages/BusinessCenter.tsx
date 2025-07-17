@@ -15,10 +15,12 @@ import {
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useNavigate } from 'react-router-dom';
 
 const BusinessCenter = () => {
   const { user } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [businessMetrics, setBusinessMetrics] = useState({
     monthlyRevenue: 0,
     activeCustomers: 0,
@@ -70,27 +72,28 @@ const BusinessCenter = () => {
     }
   };
 
+  const isRetail = user?.role === 'retail';
   const businessTools = [
     {
       title: "Analytics Dashboard",
       description: "Comprehensive business insights and reporting",
       icon: <BarChart3 className="h-8 w-8 text-blue-600" />,
       action: "View Analytics",
-      href: "/wholesale/analytics"
+      href: "/analytics"
     },
     {
       title: "Financial Reports",
       description: "Generate detailed financial statements",
       icon: <FileText className="h-8 w-8 text-green-600" />,
       action: "Generate Reports",
-      href: "/business-tools-retail"
+      href: "/inventory-reports"
     },
     {
       title: "Schedule Management",
       description: "Manage appointments and schedules",
       icon: <Calendar className="h-8 w-8 text-purple-600" />,
       action: "Manage Schedule",
-      href: "/appointments"
+      href: isRetail ? "/pharmacy/appointments" : "/appointments"
     },
     {
       title: "Business Settings",
@@ -181,10 +184,8 @@ const BusinessCenter = () => {
                   <div className="flex-1">
                     <h3 className="text-lg font-semibold mb-2">{tool.title}</h3>
                     <p className="text-gray-600 mb-4">{tool.description}</p>
-                    <Button variant="outline" size="sm" asChild>
-                      <a href={tool.href}>
-                        {tool.action}
-                      </a>
+                    <Button variant="outline" size="sm" onClick={() => navigate(tool.href)}>
+                      {tool.action}
                     </Button>
                   </div>
                 </div>
@@ -200,25 +201,17 @@ const BusinessCenter = () => {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap gap-4">
-              <Button className="bg-blue-600 hover:bg-blue-700" asChild>
-                <a href="/wholesale-ordering">
-                  Create New Order
-                </a>
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => navigate("/wholesale-ordering")}>
+                Create New Order
               </Button>
-              <Button variant="outline" asChild>
-                <a href="/business-tools-retail">
-                  Export Data
-                </a>
+              <Button variant="outline" onClick={() => navigate("/business-tools-retail")}>
+                Export Data
               </Button>
-              <Button variant="outline" asChild>
-                <a href="/appointments">
-                  Schedule Appointment
-                </a>
+              <Button variant="outline" onClick={() => navigate(isRetail ? "/pharmacy/appointments" : "/appointments")}>
+                Schedule Appointment
               </Button>
-              <Button variant="outline" asChild>
-                <a href="/settings">
-                  Contact Support
-                </a>
+              <Button variant="outline" onClick={() => navigate("/settings")}>
+                Contact Support
               </Button>
             </div>
           </CardContent>

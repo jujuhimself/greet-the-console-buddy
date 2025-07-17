@@ -15,6 +15,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import { financialService } from '@/services/financialService';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
+import LabResults from '@/components/individual/LabResults';
 
 const swahiliGreetings = ["habari", "shikamoo", "mambo", "vipi", "salama"]; // simple Swahili detection
 
@@ -401,6 +402,7 @@ const PersonalHealth = () => {
             </Card>
           </section>
         )}
+        <LabResults />
       </div>
       <Dialog open={chatbotOpen} onOpenChange={setChatbotOpen}>
         <DialogContent className="max-w-lg">

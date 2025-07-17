@@ -8,6 +8,7 @@ import { Shield, CheckCircle, AlertTriangle, Search, Plus, Calendar } from "luci
 import PageHeader from "@/components/PageHeader";
 import QualityControlForm from "@/components/lab/QualityControlForm";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface QualityControlCheck {
   id: string;
@@ -27,57 +28,46 @@ const LabQualityControl = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editCheck, setEditCheck] = useState<QualityControlCheck | null>(null);
 
   useEffect(() => {
-    // Mock data for quality control checks
-    const mockChecks: QualityControlCheck[] = [
-      {
-        id: '1',
-        equipment_name: 'Hematology Analyzer',
-        check_type: 'daily',
-        status: 'passed',
-        checked_by: 'Lab Tech A',
-        check_date: '2024-01-15',
-        next_check_date: '2024-01-16',
-        notes: 'All parameters within normal range'
-      },
-      {
-        id: '2',
-        equipment_name: 'Chemistry Analyzer',
-        check_type: 'calibration',
-        status: 'pending',
-        checked_by: 'Lab Tech B',
-        check_date: '2024-01-14',
-        next_check_date: '2024-01-21',
-        notes: 'Requires calibration verification'
-      },
-      {
-        id: '3',
-        equipment_name: 'Microscope Unit 1',
-        check_type: 'weekly',
-        status: 'failed',
-        checked_by: 'Lab Tech C',
-        check_date: '2024-01-13',
-        next_check_date: '2024-01-20',
-        notes: 'Light source needs replacement'
-      }
-    ];
-    
-    setChecks(mockChecks);
-    setIsLoading(false);
+    fetchChecks();
   }, []);
 
-  const handleCreateCheck = (newCheck: Omit<QualityControlCheck, 'id'>) => {
-    const check: QualityControlCheck = {
-      ...newCheck,
-      id: Date.now().toString()
-    };
-    
-    setChecks([check, ...checks]);
-    toast({
-      title: "Quality control check created",
-      description: `New ${newCheck.check_type} check for ${newCheck.equipment_name} has been recorded.`,
-    });
+  const fetchChecks = async () => {
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from('quality_control_checks')
+        .select('*')
+        .order('check_date', { ascending: false });
+      if (error) throw error;
+      setChecks(data || []);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to load quality control checks', variant: 'destructive' });
+    }
+    setIsLoading(false);
+  };
+
+  const handleCreateCheck = async (newCheck: Omit<QualityControlCheck, 'id'>) => {
+    try {
+      const { data, error } = await supabase
+        .from('quality_control_checks')
+        .insert({
+          ...newCheck,
+          checked_by: user?.id,
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      setChecks([data, ...checks]);
+      toast({
+        title: 'Quality control check created',
+        description: `New ${newCheck.check_type} check for ${newCheck.equipment_name} has been recorded.`,
+      });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to create quality control check', variant: 'destructive' });
+    }
   };
 
   const handleUpdateCheck = (id: string, updates: Partial<QualityControlCheck>) => {
@@ -88,6 +78,36 @@ const LabQualityControl = () => {
       title: "Check updated",
       description: "Quality control check has been updated successfully.",
     });
+  };
+
+  const handleEditCheck = async (id: string, updates: Partial<QualityControlCheck>) => {
+    try {
+      const { data, error } = await supabase
+        .from('quality_control_checks')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+      if (error) throw error;
+      setChecks(checks.map(check => check.id === id ? data : check));
+      toast({ title: 'Check updated', description: 'Quality control check has been updated successfully.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to update quality control check', variant: 'destructive' });
+    }
+  };
+
+  const handleDeleteCheck = async (id: string) => {
+    try {
+      const { error } = await supabase
+        .from('quality_control_checks')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+      setChecks(checks.filter(check => check.id !== id));
+      toast({ title: 'Check deleted', description: 'Quality control check has been deleted.' });
+    } catch (err) {
+      toast({ title: 'Error', description: 'Failed to delete quality control check', variant: 'destructive' });
+    }
   };
 
   const getStatusColor = (status: string) => {
@@ -239,6 +259,10 @@ const LabQualityControl = () => {
                     <div className="text-right text-sm text-gray-500">
                       <div>Last Check: {new Date(check.check_date).toLocaleDateString()}</div>
                       <div>Next Check: {new Date(check.next_check_date).toLocaleDateString()}</div>
+                      <div className="flex gap-2 mt-2">
+                        <Button size="sm" variant="outline" onClick={() => setEditCheck(check)}>Edit</Button>
+                        <Button size="sm" variant="destructive" onClick={() => handleDeleteCheck(check.id)}>Delete</Button>
+                      </div>
                     </div>
                   </div>
                   
@@ -275,6 +299,18 @@ const LabQualityControl = () => {
           onClose={() => setIsFormOpen(false)}
           onSubmit={handleCreateCheck}
         />
+        {/* Edit QC Check Modal */}
+        {editCheck && (
+          <QualityControlForm
+            isOpen={!!editCheck}
+            onClose={() => setEditCheck(null)}
+            onSubmit={async (data) => {
+              await handleEditCheck(editCheck.id, data);
+              setEditCheck(null);
+            }}
+            initialData={editCheck}
+          />
+        )}
       </div>
     </div>
   );

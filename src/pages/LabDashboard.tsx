@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -30,6 +30,7 @@ import PatientManagement from "@/components/lab/PatientManagement";
 import LabStatsCards from "@/components/lab/LabStatsCards";
 import LabQuickActions from "@/components/lab/LabQuickActions";
 import { Badge } from "@/components/ui/badge";
+import { supabase } from '@/integrations/supabase/client';
 
 const LabDashboard = () => {
   const { user } = useAuth();
@@ -37,6 +38,10 @@ const LabDashboard = () => {
   const { data: appointments, isLoading: appointmentsLoading } = useTodaysAppointments('lab');
   const [activeTab, setActiveTab] = useState("overview");
   const [showAppointmentScheduler, setShowAppointmentScheduler] = useState(false);
+  const todayAppointments = appointments || [];
+  const pendingResults = data?.testResults?.filter(result => 
+    result.status === 'pending' || result.status === 'scheduled'
+  ) || [];
 
   if (isLoading || appointmentsLoading) {
     return (
@@ -61,11 +66,6 @@ const LabDashboard = () => {
       </div>
     );
   }
-
-  const todayAppointments = appointments || [];
-  const pendingResults = data?.testResults?.filter(result => 
-    result.status === 'pending' || result.status === 'scheduled'
-  ) || [];
 
   const stats = data?.stats || { 
     todayAppointments: 0, 
@@ -178,9 +178,6 @@ const LabDashboard = () => {
               completedTodayCount={stats.completedToday}
             />
 
-            {/* Quick Actions */}
-            <LabQuickActions />
-
             {/* Overview Cards */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Today's Appointments */}
@@ -203,7 +200,7 @@ const LabDashboard = () => {
                       {todayAppointments.slice(0, 5).map((appointment) => (
                         <div key={appointment.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">{appointment.user_id}</p>
+                            <p className="font-medium text-gray-900">{(appointment as any).patientName || 'Unknown Patient'}</p>
                             <p className="text-sm text-gray-600">{appointment.service_type}</p>
                           </div>
                           <div className="text-right">
@@ -249,7 +246,7 @@ const LabDashboard = () => {
                       {pendingResults.slice(0, 5).map((result) => (
                         <div key={result.id} className="flex items-center justify-between p-3 bg-orange-50 rounded-lg hover:bg-orange-100 transition-colors">
                           <div className="flex-1">
-                            <p className="font-medium text-gray-900">{result.patientName}</p>
+                            <p className="font-medium text-gray-900">{result.patientName || 'Unknown Patient'}</p>
                             <p className="text-sm text-gray-600">{result.testType}</p>
                           </div>
                           <div className="text-right">

@@ -8,6 +8,7 @@ import { TestTube, Calendar, User, Search, Plus } from "lucide-react";
 import PageHeader from "@/components/PageHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import LabResultsManager from '@/components/lab/LabResultsManager';
 
 interface LabOrderItem {
   id: string;
@@ -97,96 +98,20 @@ const LabResults = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
-        <PageHeader
-          title="Test Results"
-          description="Manage and view laboratory test results"
-          badge={{ text: "Lab Portal", variant: "outline" }}
-        />
-        <div className="flex flex-col md:flex-row gap-4 mb-6">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-              <Input
-                placeholder="Search results..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-          </div>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Result
-          </Button>
-        </div>
-
-        {filteredResults.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <TestTube className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No results found</h3>
-              <p className="text-gray-600 mb-4">
-                {searchTerm ? "No results match your search." : "No test results available."}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4">
-            {filteredResults.map((result) => (
-              <Card key={result.id} className="hover:shadow-md transition-shadow">
-                <CardContent className="p-6">
-                  <div className="flex justify-between items-start mb-4">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-1">{result.test_name}</h3>
-                      <div className="flex items-center text-gray-600 mb-2">
-                        <User className="h-4 w-4 mr-1" />
-                        <span>{result.patient_name}</span>
-                      </div>
-                      <div className="flex items-center text-gray-600">
-                        <Calendar className="h-4 w-4 mr-1" />
-                        <span>Ordered: {new Date(result.order_date).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <Badge className={getStatusColor(result.status)}>
-                        {result.status}
-                      </Badge>
-                      <div className="text-sm text-gray-500 mt-1">
-                        ${result.test_price.toFixed(2)}
-                      </div>
-                    </div>
-                  </div>
-                  
-                  {result.result && (
-                    <div className="bg-gray-50 p-3 rounded-lg mb-4">
-                      <h4 className="text-sm font-medium mb-1">Result</h4>
-                      <p className="text-sm text-gray-700">{result.result}</p>
-                      {result.result_date && (
-                        <p className="text-xs text-gray-500 mt-1">
-                          Result Date: {new Date(result.result_date).toLocaleDateString()}
-                        </p>
-                      )}
-                    </div>
-                  )}
-
-                  <div className="flex gap-2">
-                    <Button variant="outline" size="sm">
-                      View Details
-                    </Button>
-                    {result.status !== 'completed' && (
-                      <Button variant="outline" size="sm">
-                        Update Result
-                      </Button>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
+    <div className="container mx-auto px-4 py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <TestTube className="h-5 w-5" />
+            Test Results
+            <span className="ml-2"><Badge variant="outline">Lab Portal</Badge></span>
+          </CardTitle>
+          <div className="text-gray-600 mt-2">Manage and view laboratory test results</div>
+        </CardHeader>
+        <CardContent>
+          <LabResultsManager />
+        </CardContent>
+      </Card>
     </div>
   );
 };

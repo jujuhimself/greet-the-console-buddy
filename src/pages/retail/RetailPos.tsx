@@ -237,6 +237,25 @@ export default function RetailPos() {
     }
   }
 
+  const [userProfiles, setUserProfiles] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (sales.length > 0) {
+      const userIds = Array.from(new Set(sales.map(s => s.user_id)));
+      supabase
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds)
+        .then(({ data }) => {
+          const map: Record<string, string> = {};
+          (data || []).forEach((p: any) => {
+            map[p.id] = p.name || p.email || p.id;
+          });
+          setUserProfiles(map);
+        });
+    }
+  }, [sales]);
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -411,6 +430,7 @@ export default function RetailPos() {
                   <tr>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
+                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Staff</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Total</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Payment</th>
                     <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
@@ -421,6 +441,7 @@ export default function RetailPos() {
                     <tr key={sale.id}>
                       <td className="px-4 py-2 whitespace-nowrap">{new Date(sale.sale_date).toLocaleString()}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{sale.customer_name || 'Walk-in'}</td>
+                      <td className="px-4 py-2 whitespace-nowrap">{userProfiles[sale.user_id] || sale.user_id}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{Number(sale.total_amount).toLocaleString('en-TZ', { style: 'currency', currency: 'TZS' })}</td>
                       <td className="px-4 py-2 whitespace-nowrap">{sale.payment_method.charAt(0).toUpperCase() + sale.payment_method.slice(1)}</td>
                       <td className="px-4 py-2 whitespace-nowrap font-mono text-xs">{sale.id}</td>

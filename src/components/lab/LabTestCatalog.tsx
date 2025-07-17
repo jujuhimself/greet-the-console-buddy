@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Search, Plus, Edit, Trash2, Clock, DollarSign, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { labService } from '@/services/labService';
 
 interface LabTest {
   id: string;
@@ -138,7 +139,7 @@ const categories = [
 ];
 
 const LabTestCatalog = () => {
-  const [tests, setTests] = useState<LabTest[]>(defaultTests);
+  const [tests, setTests] = useState<LabTest[]>([]); // Remove defaultTests from state
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
   const [showAddTest, setShowAddTest] = useState(false);
@@ -146,6 +147,32 @@ const LabTestCatalog = () => {
   const [selectedTest, setSelectedTest] = useState<LabTest | null>(null);
   const [formData, setFormData] = useState<Partial<LabTest>>({});
   const { toast } = useToast();
+
+  // On mount, fetch tests from DB
+  useEffect(() => {
+    fetchTests();
+  }, []);
+
+  const fetchTests = async () => {
+    try {
+      const dbTests = await labService.getLabTests();
+      const mappedTests = dbTests.map((t: any) => ({
+        id: t.id,
+        name: t.test_name || t.name || '',
+        category: t.category || '',
+        code: t.test_code || t.code || '',
+        price: t.price || 0,
+        turnaround_time: t.turnaround_time_hours ? `${t.turnaround_time_hours} hours` : (t.turnaround_time || ''),
+        preparation: t.preparation_instructions || t.preparation || '',
+        description: t.description || '',
+        is_active: t.is_active !== false,
+        insurance_codes: t.insurance_codes || [],
+      }));
+      setTests(mappedTests.length > 0 ? mappedTests : defaultTests);
+    } catch {
+      setTests(defaultTests);
+    }
+  };
 
   const filteredTests = tests.filter(test => {
     const matchesSearch = test.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -173,7 +200,7 @@ const LabTestCatalog = () => {
     });
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!formData.name || !formData.category || !formData.code || !formData.price) {
       toast({
         title: "Missing Information",
@@ -184,23 +211,27 @@ const LabTestCatalog = () => {
     }
 
     if (showAddTest) {
-      const newTest: LabTest = {
-        id: Date.now().toString(),
-        name: formData.name!,
-        category: formData.category!,
-        code: formData.code!,
-        price: formData.price!,
-        turnaround_time: formData.turnaround_time || "24 hours",
-        preparation: formData.preparation || "No special preparation required",
-        description: formData.description || "",
-        is_active: true,
-        insurance_codes: formData.insurance_codes || []
-      };
-      setTests(prev => [...prev, newTest]);
-      toast({
-        title: "Test Added",
-        description: "New lab test has been added to catalog.",
-      });
+      try {
+        await labService.createLabTest({
+          test_name: formData.name!,
+          test_code: formData.code!,
+          category: formData.category!,
+          description: formData.description || '',
+          sample_type: '',
+          preparation_instructions: formData.preparation || '',
+          normal_range: '',
+          price: Number(formData.price),
+          turnaround_time_hours: Number(formData.turnaround_time) || 24,
+          is_active: true,
+          lab_id: undefined,
+        });
+        toast({ title: "Test Added", description: "Lab test has been added to the catalog." });
+        setShowAddTest(false);
+        fetchTests();
+      } catch (e) {
+        toast({ title: "Error", description: "Failed to add test.", variant: "destructive" });
+      }
+      return;
     } else if (showEditTest && selectedTest) {
       setTests(prev => prev.map(test => 
         test.id === selectedTest.id 

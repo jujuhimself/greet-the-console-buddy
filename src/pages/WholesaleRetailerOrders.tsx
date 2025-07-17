@@ -62,47 +62,25 @@ const WholesaleRetailerOrders = () => {
     async function fetchRetailersAndOrders() {
       setLoading(true);
 
-      // Get orders and build pharmacy data
-      const { data: orders, error: ordersError } = await supabase
-        .from('orders')
-        .select('id, order_number, created_at, total_amount, status, payment_status, pharmacy_id')
-        .eq('wholesaler_id', user.id)
-        .order('created_at', { ascending: false });
+      // Fetch all retailers (pharmacies)
+      const { data: pharmacyProfiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, business_name, name, email, phone, address, region, city')
+        .eq('role', 'retail')
+        .eq('is_approved', true);
 
-      if (ordersError) {
+      if (profilesError) {
         setPharmacies([]);
         setLoading(false);
         return;
       }
 
-      // Collect all unique pharmacy_ids
-      const pharmacyIds = Array.from(new Set((orders ?? []).map((o: any) => o.pharmacy_id).filter(Boolean)));
-      let pharmacyProfiles: any[] = [];
-      if (pharmacyIds.length > 0) {
-        const { data: profileData } = await supabase
-          .from('profiles')
-          .select('id, business_name, name, email, phone, address, region, city')
-          .in('id', pharmacyIds);
-
-        pharmacyProfiles = profileData || [];
-      }
-
-      // Map orders to pharmacies
-      const pharmacyMap: Record<string, Pharmacy> = {};
-      pharmacyProfiles.forEach(p => {
-        pharmacyMap[p.id] = {
-          id: p.id,
-          name: p.business_name || p.name || "Retailer",
-          contactPerson: p.name || "",
-          email: p.email || "",
-          phone: p.phone || "",
-          location: [p.city, p.region, p.address].filter(Boolean).join(", "),
-          totalOrders: 0,
-          totalSpent: 0,
-          lastOrderDate: "",
-          orders: []
-        };
-      });
+      // Fetch all orders for this wholesaler
+      const { data: orders, error: ordersError } = await supabase
+        .from('orders')
+        .select('id, order_number, created_at, total_amount, status, payment_status, pharmacy_id')
+        .eq('wholesaler_id', user.id)
+        .order('created_at', { ascending: false });
 
       // Fetch all order items for these orders
       const orderIds = (orders || []).map(o => o.id);
@@ -124,6 +102,23 @@ const WholesaleRetailerOrders = () => {
           });
         });
       }
+
+      // Map pharmacies and join in their orders (if any)
+      const pharmacyMap: Record<string, Pharmacy> = {};
+      (pharmacyProfiles || []).forEach(p => {
+        pharmacyMap[p.id] = {
+          id: p.id,
+          name: p.business_name || p.name || "Retailer",
+          contactPerson: p.name || "",
+          email: p.email || "",
+          phone: p.phone || "",
+          location: [p.city, p.region, p.address].filter(Boolean).join(", "),
+          totalOrders: 0,
+          totalSpent: 0,
+          lastOrderDate: "",
+          orders: []
+        };
+      });
 
       // Organize order list per pharmacy
       (orders || []).forEach(order => {

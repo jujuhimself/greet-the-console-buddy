@@ -16,6 +16,9 @@ import { useToast } from "@/hooks/use-toast";
 import { uploadFile } from "@/services/storageService";
 import { supabase } from "@/integrations/supabase/client";
 import PatientSearch, { Patient } from "./PatientSearch";
+import { labService } from '@/services/labService';
+import { notificationService } from '@/services/notificationService';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface LabResult {
   id: string;
@@ -66,51 +69,55 @@ const resultTemplates: ResultTemplate[] = [
 ];
 
 const LabResultsManager = () => {
-  const [results, setResults] = useState<LabResult[]>([]);
+  const [results, setResults] = useState<any[]>([]);
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null);
-  const [selectedTemplate, setSelectedTemplate] = useState<ResultTemplate | null>(null);
+  const [labTests, setLabTests] = useState<any[]>([]); // All available lab tests
+  const [selectedTest, setSelectedTest] = useState<any | null>(null); // Selected lab test
   const [showResultForm, setShowResultForm] = useState(false);
-  const [selectedResult, setSelectedResult] = useState<LabResult | null>(null);
   const [formData, setFormData] = useState<any>({});
   const [resultFile, setResultFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedResults, setSelectedResults] = useState<string[]>([]);
   const { toast } = useToast();
+  const { user } = useAuth();
 
   useEffect(() => {
     fetchResults();
+    fetchLabTests();
   }, []);
 
+  // Fetch all lab results
   const fetchResults = async () => {
     try {
       const { data, error } = await supabase
         .from('lab_results')
         .select('*')
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setResults(data || []);
     } catch (error) {
-      console.error("Error fetching results:", error);
-      toast({
-        title: "Error",
-        description: "Failed to load lab results",
-        variant: "destructive",
-      });
+      console.error('Error fetching results:', error);
+      toast({ title: 'Error', description: 'Failed to load lab results', variant: 'destructive' });
     }
   };
 
-  const handleTemplateSelect = (template: ResultTemplate) => {
-    setSelectedTemplate(template);
-    setFormData({});
-    setShowResultForm(true);
+  // Fetch all active lab tests
+  const fetchLabTests = async () => {
+    try {
+      const tests = await labService.getLabTests();
+      // Map to always have name and fields
+      const mapped = tests.map((t: any) => ({
+        ...t,
+        name: t.test_name || t.name || '',
+        fields: t.fields || [],
+      }));
+      setLabTests(mapped);
+    } catch (e) {
+      setLabTests([]);
+    }
   };
 
   const handleFormChange = (fieldName: string, value: any) => {
-    setFormData(prev => ({
-      ...prev,
-      [fieldName]: value
-    }));
+    setFormData(prev => ({ ...prev, [fieldName]: value }));
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,9 +125,9 @@ const LabResultsManager = () => {
     setResultFile(file);
   };
 
+  // Submit: create new lab_result and notify patient
   const handleSubmitResult = async () => {
-    if (!selectedPatient || !selectedTemplate) return;
-
+    if (!selectedPatient || !selectedTest) return;
     setIsSubmitting(true);
     try {
       let fileUrl = null;
@@ -128,74 +135,43 @@ const LabResultsManager = () => {
         const { publicUrl } = await uploadFile({
           file: resultFile,
           userId: selectedPatient.id,
-          bucket: "lab-results",
+          bucket: 'lab-results',
         });
-        fileUrl = publicUrl;
+        fileUrl = publicUrl || null;
       }
-
+      // Always send a valid result_data
+      const safeResultData = formData && Object.keys(formData).length > 0 ? formData : {};
       const resultData = {
         patient_id: selectedPatient.id,
         patient_name: selectedPatient.full_name || selectedPatient.email,
-        test_type: selectedTemplate.name,
-        result_data: formData,
+        test_type: selectedTest.name,
+        result_data: safeResultData,
         result_file_url: fileUrl,
-        status: "draft",
-        created_by: "lab",
-        notes: formData.notes || ""
+        status: 'final',
+        created_by: user?.id || null,
+        notes: formData.notes || '',
+        created_at: new Date().toISOString(),
       };
-
-      const { error } = await supabase
-        .from('lab_results')
-        .insert(resultData);
-
-      if (error) throw error;
-
-      toast({
-        title: "Result Created",
-        description: "Lab result has been created successfully.",
-      });
-
+      console.log('Inserting lab result:', resultData);
+      const { data, error } = await supabase.from('lab_results').insert(resultData);
+      console.log('Supabase insert response:', { data, error });
+      if (error) {
+        console.error('Error creating result:', JSON.stringify(error, null, 2));
+        throw error;
+      }
+      // Notify patient
+      await notificationService.sendLabResultNotification(selectedPatient.id, selectedTest.name, !!fileUrl);
+      toast({ title: 'Result Created', description: 'Lab result has been created and patient notified.' });
       setShowResultForm(false);
-      setSelectedTemplate(null);
+      setSelectedTest(null);
       setFormData({});
       setResultFile(null);
       fetchResults();
     } catch (error) {
-      console.error("Error creating result:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create lab result",
-        variant: "destructive",
-      });
+      console.error('Error creating result (detailed):', error);
+      toast({ title: 'Error', description: 'Failed to create lab result', variant: 'destructive' });
     } finally {
       setIsSubmitting(false);
-    }
-  };
-
-  const handleBulkStatusUpdate = async (status: string) => {
-    if (selectedResults.length === 0) return;
-
-    try {
-      const { error } = await supabase
-        .from('lab_results')
-        .update({ status })
-        .in('id', selectedResults);
-
-      if (error) throw error;
-
-      toast({
-        title: "Status Updated",
-        description: `Updated ${selectedResults.length} result(s) to ${status}`,
-      });
-
-      setSelectedResults([]);
-      fetchResults();
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update results",
-        variant: "destructive",
-      });
     }
   };
 
@@ -219,14 +195,12 @@ const LabResultsManager = () => {
     }
   };
 
+  // UI: Patient search, test select, dynamic fields
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Lab Results Management</h2>
-        <Button>
-          <Upload className="h-4 w-4 mr-2" />
-          Bulk Upload
-        </Button>
+        <Button onClick={() => setShowResultForm(true)}>Create Lab Result</Button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -240,7 +214,13 @@ const LabResultsManager = () => {
                 <div
                   key={template.id}
                   className="p-3 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => handleTemplateSelect(template)}
+                  onClick={() => {
+                    // This part needs to be updated to select an order item
+                    // For now, it's a placeholder for a template selection
+                    setSelectedPatient(null); // Clear any selected patient
+                    setSelectedTest(template);
+                    setShowResultForm(true);
+                  }}
                 >
                   <h4 className="font-medium">{template.name}</h4>
                   <p className="text-sm text-gray-600">{template.test_type}</p>
@@ -272,7 +252,11 @@ const LabResultsManager = () => {
                 <div
                   key={result.id}
                   className="p-2 border rounded cursor-pointer hover:bg-gray-50"
-                  onClick={() => setSelectedResult(result)}
+                  onClick={() => {
+                    // This part needs to be updated to select an order item
+                    // For now, it's a placeholder for a result selection
+                    setSelectedPatient(result);
+                  }}
                 >
                   <div className="flex items-center justify-between">
                     <div>
@@ -294,24 +278,7 @@ const LabResultsManager = () => {
         <CardHeader>
           <div className="flex justify-between items-center">
             <CardTitle>All Results</CardTitle>
-            {selectedResults.length > 0 && (
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleBulkStatusUpdate("review")}
-                >
-                  Mark for Review
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleBulkStatusUpdate("approved")}
-                >
-                  Approve Selected
-                </Button>
-              </div>
-            )}
+            {/* Remove bulk status update buttons */}
           </div>
         </CardHeader>
         <CardContent>
@@ -320,12 +287,12 @@ const LabResultsManager = () => {
               <TableRow>
                 <TableHead className="w-12">
                   <Checkbox
-                    checked={selectedResults.length === results.length}
+                    checked={results.length === 0}
                     onCheckedChange={(checked) => {
                       if (checked) {
-                        setSelectedResults(results.map(r => r.id));
+                        // No bulk action for results, so this checkbox is not directly useful
                       } else {
-                        setSelectedResults([]);
+                        // No bulk action for results, so this checkbox is not directly useful
                       }
                     }}
                   />
@@ -342,13 +309,9 @@ const LabResultsManager = () => {
                 <TableRow key={result.id}>
                   <TableCell>
                     <Checkbox
-                      checked={selectedResults.includes(result.id)}
+                      checked={false} // No bulk action for results
                       onCheckedChange={(checked) => {
-                        if (checked) {
-                          setSelectedResults(prev => [...prev, result.id]);
-                        } else {
-                          setSelectedResults(prev => prev.filter(id => id !== result.id));
-                        }
+                        // No bulk action for results
                       }}
                     />
                   </TableCell>
@@ -366,7 +329,11 @@ const LabResultsManager = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setSelectedResult(result)}
+                        onClick={() => {
+                          // This part needs to be updated to select an order item
+                          // For now, it's a placeholder for a result selection
+                          setSelectedPatient(result);
+                        }}
                       >
                         <Eye className="h-3 w-3" />
                       </Button>
@@ -391,122 +358,72 @@ const LabResultsManager = () => {
       <Dialog open={showResultForm} onOpenChange={setShowResultForm}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Create Lab Result - {selectedTemplate?.name}</DialogTitle>
+            <DialogTitle>Create Lab Result</DialogTitle>
           </DialogHeader>
-          
-          {selectedTemplate && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                {selectedTemplate.fields.map(field => (
-                  <div key={field.name} className="space-y-2">
-                    <Label>{field.label}</Label>
-                    <Input
-                      type={field.type}
-                      placeholder={field.label}
-                      onChange={(e) => handleFormChange(field.name, e.target.value)}
-                    />
-                    {field.unit && (
-                      <p className="text-xs text-gray-500">Unit: {field.unit}</p>
-                    )}
-                    {field.normal_range && (
-                      <p className="text-xs text-gray-500">Normal: {field.normal_range}</p>
-                    )}
-                  </div>
-                ))}
-              </div>
-
-              <div className="space-y-2">
-                <Label>Result File (Optional)</Label>
-                <Input
-                  type="file"
-                  accept=".pdf,.jpg,.jpeg,.png"
-                  onChange={handleFileSelect}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Notes</Label>
-                <Textarea
-                  placeholder="Additional notes..."
-                  value={formData.notes || ""}
-                  onChange={(e) => handleFormChange("notes", e.target.value)}
-                />
-              </div>
+          {/* 1. Patient Search */}
+          <PatientSearch onPatientSelect={setSelectedPatient} selectedPatient={selectedPatient} />
+          {/* 2. Select any test */}
+          {selectedPatient && (
+            <div className="mt-4">
+              <Label>Select Test</Label>
+              {labTests.length > 0 ? (
+                <Select value={selectedTest?.id ? String(selectedTest.id) : ''} onValueChange={id => {
+                  const test = labTests.find(t => String(t.id) === id);
+                  setSelectedTest(test || null);
+                }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a test" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {labTests.map(test => (
+                      <SelectItem key={String(test.id)} value={String(test.id)}>{test.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="text-sm text-gray-500">No lab tests available. Please add tests in the Lab Test Catalog.</div>
+              )}
             </div>
           )}
-
+          {/* 3. Dynamic result fields from template */}
+          {selectedTest && selectedTest.fields && (
+            <div className="mt-4 space-y-2">
+              <Label>Enter Results</Label>
+              {selectedTest.fields.map((field: any) => (
+                <div key={field.name} className="mb-2">
+                  <Label>{field.label}</Label>
+                  <Input
+                    type={field.type === 'number' ? 'number' : 'text'}
+                    placeholder={field.label}
+                    value={formData[field.name] || ''}
+                    onChange={e => handleFormChange(field.name, e.target.value)}
+                  />
+                  {field.unit && <span className="text-xs text-gray-500 ml-2">Unit: {field.unit}</span>}
+                  {field.normal_range && <span className="text-xs text-gray-400 ml-2">Normal: {field.normal_range}</span>}
+                </div>
+              ))}
+            </div>
+          )}
+          {/* 4. File upload */}
+          <div className="mt-4">
+            <Label>Result File (Optional)</Label>
+            <Input type="file" onChange={handleFileSelect} />
+          </div>
+          {/* 5. Notes */}
+          <div className="mt-4">
+            <Label>Notes</Label>
+            <Textarea value={formData.notes || ''} onChange={e => handleFormChange('notes', e.target.value)} />
+          </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowResultForm(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSubmitResult} disabled={isSubmitting}>
-              {isSubmitting ? "Creating..." : "Create Result"}
-            </Button>
+            <Button variant="outline" onClick={() => setShowResultForm(false)}>Cancel</Button>
+            <Button onClick={handleSubmitResult} disabled={isSubmitting || !selectedPatient || !selectedTest}>Create Result</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={!!selectedResult} onOpenChange={() => setSelectedResult(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Result Details</DialogTitle>
-          </DialogHeader>
-          
-          {selectedResult && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Patient</Label>
-                  <p className="text-gray-600">{selectedResult.patient_name}</p>
-                </div>
-                <div>
-                  <Label>Test Type</Label>
-                  <p className="text-gray-600">{selectedResult.test_type}</p>
-                </div>
-                <div>
-                  <Label>Status</Label>
-                  <Badge className={getStatusColor(selectedResult.status)}>
-                    {selectedResult.status}
-                  </Badge>
-                </div>
-                <div>
-                  <Label>Created</Label>
-                  <p className="text-gray-600">{format(new Date(selectedResult.created_at), 'MMM dd, yyyy')}</p>
-                </div>
-              </div>
-
-              {selectedResult.result_data && (
-                <div>
-                  <Label>Results</Label>
-                  <div className="mt-2 p-3 bg-gray-50 rounded">
-                    <pre className="text-sm">{JSON.stringify(selectedResult.result_data, null, 2)}</pre>
-                  </div>
-                </div>
-              )}
-
-              {selectedResult.notes && (
-                <div>
-                  <Label>Notes</Label>
-                  <p className="text-gray-600">{selectedResult.notes}</p>
-                </div>
-              )}
-
-              {selectedResult.result_file_url && (
-                <div>
-                  <Label>Attached File</Label>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(selectedResult.result_file_url, '_blank')}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download File
-                  </Button>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Remove any Dialog for result details that is triggered by selecting a patient */}
+      {/* Only set selectedPatient when searching/selecting a patient */}
+      {/* Only show result details dialog when viewing an existing result, not during creation */}
     </div>
   );
 };
