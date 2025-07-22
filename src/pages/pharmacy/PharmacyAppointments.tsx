@@ -21,6 +21,7 @@ interface PharmacyAppointment {
   notes?: string;
   patient_name: string;
   patient_phone?: string;
+  priority?: 'urgent' | 'emergency';
 }
 
 const PharmacyAppointments = () => {
@@ -33,12 +34,33 @@ const PharmacyAppointments = () => {
   const [patientProfileMap, setPatientProfileMap] = useState<Record<string, { name: string; phone: string }>>({});
   const [selectedAppointment, setSelectedAppointment] = useState<PharmacyAppointment | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
+  const [patientPhones, setPatientPhones] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (user) {
       fetchAppointments();
     }
   }, [user]);
+
+  useEffect(() => {
+    async function fetchPatientPhones() {
+      const userIds = Array.from(new Set(appointments.map(a => a.user_id).filter(Boolean)));
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, phone')
+          .in('id', userIds);
+        if (profiles) {
+          const phoneMap: Record<string, string> = {};
+          profiles.forEach((p: any) => {
+            phoneMap[p.id] = p.phone || '';
+          });
+          setPatientPhones(phoneMap);
+        }
+      }
+    }
+    fetchPatientPhones();
+  }, [appointments]);
 
   const fetchAppointments = async () => {
     try {
@@ -60,7 +82,8 @@ const PharmacyAppointments = () => {
         status: apt.status as 'scheduled' | 'confirmed' | 'in-progress' | 'completed' | 'cancelled',
         notes: apt.notes || undefined,
         patient_name: '',
-        patient_phone: ''
+        patient_phone: '',
+        priority: apt.priority || undefined,
       }));
 
       setAppointments(typedAppointments);
@@ -207,9 +230,16 @@ const PharmacyAppointments = () => {
                         </div>
                       )}
                     </div>
-                    <Badge className={getStatusColor(appointment.status)}>
-                      {appointment.status.replace('-', ' ')}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                      <Badge className={getStatusColor(appointment.status)}>
+                        {appointment.status}
+                      </Badge>
+                      {['urgent', 'emergency'].includes(appointment.priority) && (
+                        <Badge className={appointment.priority === 'urgent' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}>
+                          {appointment.priority.charAt(0).toUpperCase() + appointment.priority.slice(1)}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
@@ -222,6 +252,19 @@ const PharmacyAppointments = () => {
                       <span>{appointment.appointment_time}</span>
                     </div>
                   </div>
+
+                  {['urgent', 'emergency'].includes(appointment.priority) && (
+                    <div className="mt-2">
+                      <span className="block text-xs text-red-700 font-semibold mb-1">This appointment requires immediate attention.</span>
+                      {appointment.user_id && patientPhones[appointment.user_id] ? (
+                        <a href={`tel:${patientPhones[appointment.user_id]}`} className="inline-block px-3 py-1 bg-green-600 text-white rounded shadow hover:bg-green-700 text-xs font-bold">
+                          Call Patient
+                        </a>
+                      ) : (
+                        <span className="block text-xs text-gray-600">Please follow up with the patient by phone as soon as possible.</span>
+                      )}
+                    </div>
+                  )}
 
                   {appointment.notes && (
                     <div className="bg-gray-50 p-3 rounded-lg mb-4">

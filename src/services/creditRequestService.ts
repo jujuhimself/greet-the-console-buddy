@@ -5,6 +5,7 @@ import { auditService } from '@/services/auditService';
 export interface CreditRequest {
   id: string;
   user_id: string;
+  wholesaler_id?: string;
   business_name: string;
   requested_amount: number;
   business_type: string;
@@ -51,7 +52,8 @@ class CreditRequestService {
       .insert({
         ...request,
         user_id: user.id,
-        status: 'pending'
+        status: 'pending',
+        wholesaler_id: request.wholesaler_id
       })
       .select()
       .single();
@@ -122,6 +124,16 @@ class CreditRequestService {
     );
 
     return filtered.map(rec => rec as CreditRequest);
+  }
+
+  async getCreditRequestsForWholesaler(wholesalerId: string): Promise<CreditRequest[]> {
+    const { data, error } = await supabase
+      .from('credit_requests')
+      .select('*')
+      .eq('wholesaler_id', wholesalerId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data || []) as CreditRequest[];
   }
 
   async getCreditAccount(): Promise<CreditAccount | null> {

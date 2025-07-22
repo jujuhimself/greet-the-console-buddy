@@ -98,6 +98,7 @@ const PharmacyAppointmentScheduler = ({ isOpen, onClose, onAppointmentCreated, p
         provider_type: "pharmacy",
         status: "scheduled" as 'scheduled',
         notes,
+        priority,
       };
       await appointmentService.createAppointment(appointmentData);
       toast({

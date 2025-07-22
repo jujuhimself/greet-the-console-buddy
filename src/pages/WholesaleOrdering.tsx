@@ -10,6 +10,7 @@ import { ShoppingCart, Plus, Minus, Package, Clock, CheckCircle } from "lucide-r
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { creditService } from '@/services/creditService';
 
 interface Product {
   id: string;
@@ -48,6 +49,8 @@ const WholesaleOrdering = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [notes, setNotes] = useState("");
+  const [payWithCredit, setPayWithCredit] = useState(false);
+  const [creditAccount, setCreditAccount] = useState<any>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -124,6 +127,19 @@ const WholesaleOrdering = () => {
     }
   }, [user, toast]);
 
+  useEffect(() => {
+    async function fetchCreditAccount() {
+      if (!user || !selectedSupplier) {
+        setCreditAccount(null);
+        return;
+      }
+      const accounts = await creditService.fetchAccounts();
+      const account = accounts.find(acc => acc.wholesaler_user_id === selectedSupplier && acc.retailer_id === user.id);
+      setCreditAccount(account || null);
+    }
+    fetchCreditAccount();
+  }, [user, selectedSupplier]);
+
   const addToOrder = (product: Product) => {
     const existingItem = orderItems.find(item => item.product_id === product.id);
     
@@ -179,7 +195,16 @@ const WholesaleOrdering = () => {
       });
       return;
     }
-
+    if (payWithCredit) {
+      if (!creditAccount || creditAccount.status !== 'active') {
+        toast({ title: 'Credit Error', description: 'No active credit account with this wholesaler.', variant: 'destructive' });
+        return;
+      }
+      if (creditAccount.credit_limit - creditAccount.current_balance < getTotalAmount()) {
+        toast({ title: 'Credit Limit Exceeded', description: 'Not enough available credit for this order.', variant: 'destructive' });
+        return;
+      }
+    }
     setIsLoading(true);
 
     try {
@@ -226,6 +251,11 @@ const WholesaleOrdering = () => {
       setOrderItems([]);
       setSelectedSupplier("");
       setNotes("");
+
+      // If payWithCredit, update credit balance
+      if (payWithCredit && creditAccount) {
+        await creditService.updateAccountBalance(creditAccount.id, creditAccount.current_balance + getTotalAmount());
+      }
 
     } catch (error: any) {
       console.error('Error submitting order:', error);
@@ -376,6 +406,22 @@ const WholesaleOrdering = () => {
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                       />
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-2">
+                      <input
+                        type="checkbox"
+                        id="payWithCredit"
+                        checked={payWithCredit}
+                        onChange={e => setPayWithCredit(e.target.checked)}
+                        disabled={!creditAccount || creditAccount.status !== 'active'}
+                      />
+                      <Label htmlFor="payWithCredit" className="cursor-pointer">
+                        Pay with Credit
+                        {creditAccount && creditAccount.status === 'active' && (
+                          <span className="ml-2 text-xs text-green-700">Available: TZS {(creditAccount.credit_limit - creditAccount.current_balance).toLocaleString()}</span>
+                        )}
+                      </Label>
                     </div>
 
                     <Button

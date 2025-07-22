@@ -20,6 +20,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface HealthRecord {
   id: string;
@@ -46,6 +47,7 @@ const HealthRecords = () => {
   const [selectedType, setSelectedType] = useState("all");
   const [records, setRecords] = useState<HealthRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedRecord, setSelectedRecord] = useState<HealthRecord | null>(null);
   
   useEffect(() => {
     if (user) {
@@ -354,7 +356,7 @@ const HealthRecords = () => {
                 )}
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="sm" onClick={() => setSelectedRecord(record)}>
                     View Details
                   </Button>
                   {record.result_file_url && (
@@ -387,6 +389,98 @@ const HealthRecords = () => {
           </Card>
         )}
       </div>
+
+      {/* Details Dialog */}
+      <Dialog open={!!selectedRecord} onOpenChange={() => setSelectedRecord(null)}>
+        <DialogContent className="max-w-lg w-full">
+          <DialogHeader>
+            <DialogTitle>Record Details</DialogTitle>
+          </DialogHeader>
+          {selectedRecord && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                {getTypeIcon(selectedRecord.type)}
+                <span className="font-semibold text-lg">{selectedRecord.title}</span>
+                <Badge className={getTypeColor(selectedRecord.type)}>
+                  {selectedRecord.type.replace('-', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </Badge>
+              </div>
+              <div className="flex items-center gap-4 text-gray-600">
+                <Calendar className="h-4 w-4" />
+                <span>{new Date(selectedRecord.date).toLocaleDateString()}</span>
+                {selectedRecord.provider && (
+                  <>
+                    <User className="h-4 w-4 ml-4" />
+                    {selectedRecord.provider}
+                  </>
+                )}
+              </div>
+              <Badge className={getStatusColor(selectedRecord.status)}>
+                {selectedRecord.status.charAt(0).toUpperCase() + selectedRecord.status.slice(1)}
+              </Badge>
+              {/* Custom content by type */}
+              {selectedRecord.type === 'lab-test' && (
+                <div>
+                  <h4 className="font-medium mb-2">Lab Test Details</h4>
+                  <div className="text-gray-700 mb-2">{selectedRecord.description}</div>
+                  {selectedRecord.result_data && (
+                    <div className="bg-green-50 p-3 rounded mb-2">
+                      <h5 className="font-semibold mb-1">Test Results</h5>
+                      <div className="text-sm">{typeof selectedRecord.result_data === 'string' ? selectedRecord.result_data : JSON.stringify(selectedRecord.result_data)}</div>
+                    </div>
+                  )}
+                  {selectedRecord.result_file_url && (
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => window.open(selectedRecord.result_file_url, '_blank')}
+                      className="mt-2"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download Result
+                    </Button>
+                  )}
+                </div>
+              )}
+              {selectedRecord.type === 'prescription' && (
+                <div>
+                  <h4 className="font-medium mb-2">Prescription Details</h4>
+                  <div className="text-gray-700 mb-2">{selectedRecord.description}</div>
+                </div>
+              )}
+              {selectedRecord.type === 'order' && (
+                <div>
+                  <h4 className="font-medium mb-2">Medication Order</h4>
+                  <div className="text-gray-700 mb-2">{selectedRecord.description}</div>
+                </div>
+              )}
+              {selectedRecord.type === 'consultation' && (
+                <div>
+                  <h4 className="font-medium mb-2">Consultation Details</h4>
+                  <div className="text-gray-700 mb-2">{selectedRecord.description}</div>
+                </div>
+              )}
+              {selectedRecord.type === 'vital-signs' && selectedRecord.vitals && (
+                <div>
+                  <h4 className="font-medium mb-2">Vital Signs</h4>
+                  {selectedRecord.vitals.bloodPressure && (
+                    <div><span className="text-gray-600">Blood Pressure:</span> <span className="font-medium">{selectedRecord.vitals.bloodPressure}</span></div>
+                  )}
+                  {selectedRecord.vitals.heartRate && (
+                    <div><span className="text-gray-600">Heart Rate:</span> <span className="font-medium">{selectedRecord.vitals.heartRate}</span></div>
+                  )}
+                  {selectedRecord.vitals.temperature && (
+                    <div><span className="text-gray-600">Temperature:</span> <span className="font-medium">{selectedRecord.vitals.temperature}</span></div>
+                  )}
+                  {selectedRecord.vitals.weight && (
+                    <div><span className="text-gray-600">Weight:</span> <span className="font-medium">{selectedRecord.vitals.weight}</span></div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

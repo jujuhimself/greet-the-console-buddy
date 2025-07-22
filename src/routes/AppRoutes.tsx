@@ -52,6 +52,7 @@ import AuditReports from '@/pages/AuditReports';
 import PharmacyForecast from '@/pages/pharmacy/PharmacyForecast';
 import RetailBranchManagement from '@/pages/RetailBranchManagement';
 import RetailBranchInventory from '@/pages/RetailBranchInventory';
+import PharmacyStore from "@/pages/PharmacyStore";
 
 // Wholesale Pages
 import WholesaleDashboard from "@/pages/WholesaleDashboard";
@@ -138,6 +139,11 @@ const AppRoutes = () => {
       <Route path="/pharmacy-directory" element={
         <RouteGuard allowedRoles={['individual']}>
           <PharmacyDirectory />
+        </RouteGuard>
+      } />
+      <Route path="/pharmacy/:pharmacyId" element={
+        <RouteGuard allowedRoles={['individual']}>
+          <PharmacyStore />
         </RouteGuard>
       } />
       <Route path="/lab-directory" element={

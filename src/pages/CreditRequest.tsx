@@ -15,6 +15,8 @@ import { LoadingState } from "@/components/LoadingState";
 import { ErrorState } from "@/components/LoadingStates";
 import { useAuth } from "@/contexts/AuthContext";
 import { auditService } from "@/services/auditService";
+import { supabase } from "@/integrations/supabase/client";
+import { useEffect } from "react";
 
 const CreditRequest = () => {
   const { toast } = useToast();
@@ -33,16 +35,31 @@ const CreditRequest = () => {
     documents: [] as string[]
   });
 
+  const [wholesalers, setWholesalers] = useState<any[]>([]);
+
+  useEffect(() => {
+    async function fetchWholesalers() {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, business_name, name, email')
+        .eq('role', 'wholesale')
+        .eq('is_approved', true);
+      if (!error && data) setWholesalers(data);
+    }
+    fetchWholesalers();
+  }, []);
+  const [selectedWholesaler, setSelectedWholesaler] = useState<string>("");
+
   // Only allow businesses to apply (not individuals or suspended/closed accounts)
   const roleNotAllowed = user && (user.role === "individual" || user.role === "admin");
   const canApply = !roleNotAllowed && (!creditAccount || creditAccount.status !== "suspended");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.business_name || !formData.requested_amount || !formData.business_type) {
+    if (!formData.business_name || !formData.requested_amount || !formData.business_type || !selectedWholesaler) {
       toast({
         title: "Validation Error",
-        description: "Please fill in all required fields.",
+        description: "Please fill in all required fields and select a wholesaler.",
         variant: "destructive",
       });
       return;
@@ -55,7 +72,8 @@ const CreditRequest = () => {
         monthly_revenue: parseFloat(formData.monthly_revenue || '0'),
         years_in_business: parseInt(formData.years_in_business || '0'),
         credit_purpose: formData.credit_purpose,
-        documents: formData.documents
+        documents: formData.documents,
+        wholesaler_id: selectedWholesaler
       });
       await auditService.logAction(
         "CREATE_CREDIT_REQUEST",
@@ -237,6 +255,27 @@ const CreditRequest = () => {
                       rows={3}
                       disabled={!canApply || createCreditRequestMutation.isPending}
                     />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="wholesaler">Select Wholesaler *</Label>
+                    <Select
+                      value={selectedWholesaler}
+                      onValueChange={setSelectedWholesaler}
+                      required
+                      disabled={!canApply || createCreditRequestMutation.isPending}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose wholesaler" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wholesalers.map((wh) => (
+                          <SelectItem key={wh.id} value={wh.id}>
+                            {wh.business_name || wh.name} ({wh.email})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <Button 

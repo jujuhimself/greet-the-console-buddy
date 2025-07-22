@@ -11,6 +11,7 @@ export interface Appointment {
   status: 'scheduled' | 'confirmed' | 'completed' | 'cancelled';
   notes?: string;
   created_at: string;
+  priority?: string;
 }
 
 class AppointmentService {
@@ -36,7 +37,8 @@ class AppointmentService {
     
     return (data || []).map(apt => ({
       ...apt,
-      status: apt.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled'
+      status: apt.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled',
+      priority: apt.priority || 'routine',
     }));
   }
 
@@ -85,6 +87,7 @@ class AppointmentService {
       status: apt.status as 'scheduled' | 'confirmed' | 'completed' | 'cancelled',
       patient_name: profilesMap[apt.user_id]?.name || undefined,
       patient_phone: profilesMap[apt.user_id]?.phone || undefined,
+      priority: apt.priority || 'routine',
     }));
   }
 

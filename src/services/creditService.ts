@@ -74,6 +74,16 @@ class CreditService {
     if (error) throw error;
     return data;
   }
+
+  async fetchTransactions(accountId: string) {
+    const { data, error } = await supabase
+      .from('wholesale_credit_transactions')
+      .select('*')
+      .eq('credit_account_id', accountId)
+      .order('transaction_date', { ascending: false });
+    if (error) throw error;
+    return { data };
+  }
 }
 
 export const creditService = new CreditService();

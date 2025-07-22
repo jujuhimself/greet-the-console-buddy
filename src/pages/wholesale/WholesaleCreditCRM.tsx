@@ -11,6 +11,7 @@ import { CreditCard, Plus, DollarSign, Users, AlertCircle } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { creditService } from '@/services/creditService';
 
 interface CreditAccount {
   id: string;
@@ -36,7 +37,7 @@ const WholesaleCreditCRM = () => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [accounts, setAccounts] = useState<CreditAccount[]>([]);
-  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
   const [retailers, setRetailers] = useState<any[]>([]);
   const [isAccountDialogOpen, setIsAccountDialogOpen] = useState(false);
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
@@ -50,6 +51,7 @@ const WholesaleCreditCRM = () => {
     amount: 0,
     reference: ''
   });
+  const [showTransactionsFor, setShowTransactionsFor] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCreditAccounts();
@@ -112,18 +114,8 @@ const WholesaleCreditCRM = () => {
   };
 
   const fetchTransactions = async (accountId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('wholesale_credit_transactions')
-        .select('*')
-        .eq('credit_account_id', accountId)
-        .order('transaction_date', { ascending: false });
-
-      if (error) throw error;
-      setTransactions(data || []);
-    } catch (error: any) {
-      console.error('Error fetching transactions:', error);
-    }
+    const { data, error } = await creditService.fetchTransactions(accountId);
+    setTransactions(data || []);
   };
 
   const createCreditAccount = async () => {
@@ -320,60 +312,76 @@ const WholesaleCreditCRM = () => {
       </div>
 
       {/* Credit Accounts Table */}
-      <Card>
+      <Card className="mt-8">
         <CardHeader>
-          <CardTitle>Credit Accounts ({accounts.length})</CardTitle>
+          <CardTitle>Retailer Credit Accounts</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Retailer</TableHead>
-                <TableHead>Credit Limit</TableHead>
-                <TableHead>Current Balance</TableHead>
-                <TableHead>Available Credit</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {accounts.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    No credit accounts found. Create your first credit account to get started.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                accounts.map((account) => (
-                  <TableRow key={account.id}>
-                    <TableCell>
-                      <div>
-                        <div className="font-medium">{account.retailer_name}</div>
-                        <div className="text-sm text-gray-600">{account.retailer_email}</div>
-                      </div>
-                    </TableCell>
-                    <TableCell>TZS {account.credit_limit.toLocaleString()}</TableCell>
-                    <TableCell className="text-red-600">TZS {account.current_balance.toLocaleString()}</TableCell>
-                    <TableCell className="text-green-600">TZS {(account.credit_limit - account.current_balance).toLocaleString()}</TableCell>
-                    <TableCell>{getStatusBadge(account.status)}</TableCell>
-                    <TableCell>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedAccount(account);
-                          setIsTransactionDialogOpen(true);
-                          fetchTransactions(account.id);
-                        }}
-                      >
-                        Record Transaction
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          {accounts.length === 0 ? (
+            <p className="text-gray-500">No credit accounts found.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th>Retailer</th>
+                  <th>Credit Limit</th>
+                  <th>Available Credit</th>
+                  <th>Current Balance</th>
+                  <th>Status</th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody>
+                {accounts.map(acc => (
+                  <tr key={acc.id}>
+                    <td>{acc.retailer_name}</td>
+                    <td>TZS {acc.credit_limit.toLocaleString()}</td>
+                    <td className="text-green-700">TZS {(acc.credit_limit - acc.current_balance).toLocaleString()}</td>
+                    <td className="text-red-700">TZS {acc.current_balance.toLocaleString()}</td>
+                    <td>{acc.status}</td>
+                    <td>
+                      <Dialog open={showTransactionsFor === acc.id} onOpenChange={open => setShowTransactionsFor(open ? acc.id : null)}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => fetchTransactions(acc.id)}>
+                            View History
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg w-full">
+                          <DialogHeader>
+                            <DialogTitle>Credit History</DialogTitle>
+                          </DialogHeader>
+                          {transactions.length === 0 ? (
+                            <p className="text-gray-500">No transactions found.</p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr>
+                                  <th>Date</th>
+                                  <th>Type</th>
+                                  <th>Amount</th>
+                                  <th>Reference</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {transactions.map(tx => (
+                                  <tr key={tx.id}>
+                                    <td>{new Date(tx.transaction_date).toLocaleDateString()}</td>
+                                    <td>{tx.transaction_type}</td>
+                                    <td>TZS {tx.amount.toLocaleString()}</td>
+                                    <td>{tx.reference || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </DialogContent>
+                      </Dialog>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </CardContent>
       </Card>
 

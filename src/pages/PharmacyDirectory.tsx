@@ -13,6 +13,7 @@ import EmptyState from "@/components/EmptyState";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import PharmacyAppointmentScheduler from "@/components/pharmacy/PharmacyAppointmentScheduler";
+import { useNavigate } from "react-router-dom";
 
 interface Pharmacy {
   id: string;
@@ -42,6 +43,7 @@ const PharmacyDirectory = ({ onSelectPharmacy, hideHeader }: PharmacyDirectoryPr
   const [isLoading, setIsLoading] = useState(true);
   const [showAppointmentDialog, setShowAppointmentDialog] = useState(false);
   const [pharmacyForAppointment, setPharmacyForAppointment] = useState<Pharmacy | null>(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchPharmacies();
@@ -206,8 +208,8 @@ const PharmacyDirectory = ({ onSelectPharmacy, hideHeader }: PharmacyDirectoryPr
                       <span className="text-sm text-gray-600">{pharmacy.hours}</span>
                     </div>
                     <div className="flex flex-col gap-2 pt-2 w-full">
-                      <Button size="sm" className="w-full" onClick={() => { setPharmacyForAppointment(pharmacy); setOrderModal(true); }}>
-                        View Details
+                      <Button size="sm" className="w-full" onClick={() => navigate(`/pharmacy/${pharmacy.id}`)}>
+                        View Store
                       </Button>
                       <Button size="sm" variant="outline" className="w-full" onClick={() => { setPharmacyForAppointment(pharmacy); setShowAppointmentDialog(true); onSelectPharmacy && onSelectPharmacy(pharmacy); }}>
                         Schedule Appointment

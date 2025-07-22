@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Clock, User, Plus } from "lucide-react";
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import LabDirectory from "./LabDirectory";
 import PharmacyDirectory from "./PharmacyDirectory";
 import PharmacyAppointmentScheduler from "@/components/pharmacy/PharmacyAppointmentScheduler";
+import { supabase } from "@/integrations/supabase/client";
 
 const Appointments = () => {
   const { user } = useAuth();
@@ -26,6 +27,31 @@ const Appointments = () => {
   const [showLabScheduler, setShowLabScheduler] = useState(false);
   const [selectedPharmacy, setSelectedPharmacy] = useState(null);
   const [showPharmacyScheduler, setShowPharmacyScheduler] = useState(false);
+  const [providerNames, setProviderNames] = useState<Record<string, string>>({});
+  const [providerPhones, setProviderPhones] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    async function fetchProviderNames() {
+      const providerIds = Array.from(new Set(appointments.map(a => a.provider_id).filter(Boolean)));
+      if (providerIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, business_name, name, phone')
+          .in('id', providerIds);
+        if (profiles) {
+          const nameMap: Record<string, string> = {};
+          const phoneMap: Record<string, string> = {};
+          profiles.forEach((p: any) => {
+            nameMap[p.id] = p.business_name || p.name || 'Unknown';
+            phoneMap[p.id] = p.phone || '';
+          });
+          setProviderNames(nameMap);
+          setProviderPhones(phoneMap);
+        }
+      }
+    }
+    fetchProviderNames();
+  }, [appointments]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -105,6 +131,9 @@ const Appointments = () => {
                           <div className="flex items-center gap-1">
                             <User className="h-4 w-4" />
                             <span>{appointment.provider_type}</span>
+                            {appointment.provider_id && providerNames[appointment.provider_id] && (
+                              <span className="ml-2 text-blue-700 font-semibold">{providerNames[appointment.provider_id]}</span>
+                            )}
                           </div>
                         </div>
                         <div className="flex items-center gap-4 text-sm text-gray-500">
@@ -123,6 +152,30 @@ const Appointments = () => {
                       <div className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(appointment.status)}`}>
                         {appointment.status.charAt(0).toUpperCase() + appointment.status.slice(1)}
                       </div>
+                      {['urgent', 'emergency'].includes(appointment.priority) && (
+                        <div className={`inline-block ml-2 px-2 py-1 rounded-full text-xs font-bold ${appointment.priority === 'urgent' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'}`}>
+                          {appointment.priority.charAt(0).toUpperCase() + appointment.priority.slice(1)}
+                        </div>
+                      )}
+                      {['urgent', 'emergency'].includes(appointment.priority) && (
+                        <div className="mt-2">
+                          {appointment.provider_id && providerNames[appointment.provider_id] ? (
+                            <>
+                              <span className="block text-xs text-red-700 font-semibold mb-1">This appointment requires immediate attention.</span>
+                              {/* If provider phone is available, show a call button */}
+                              {appointment.provider_id && providerPhones[appointment.provider_id] ? (
+                                <a href={`tel:${providerPhones[appointment.provider_id]}`} className="inline-block px-3 py-1 bg-green-600 text-white rounded shadow hover:bg-green-700 text-xs font-bold">
+                                  Call Provider
+                                </a>
+                              ) : (
+                                <span className="block text-xs text-gray-600">Please follow up with the provider by phone as soon as possible.</span>
+                              )}
+                            </>
+                          ) : (
+                            <span className="block text-xs text-gray-600">Please follow up with the provider by phone as soon as possible.</span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
                   
@@ -233,7 +286,7 @@ const Appointments = () => {
       </Dialog>
       {/* Lab Directory Dialog */}
       <Dialog open={showLabDirectory} onOpenChange={setShowLabDirectory}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl w-full sm:w-[95vw] h-[90vh] sm:h-auto p-2 sm:p-6 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select a Lab</DialogTitle>
           </DialogHeader>
@@ -256,7 +309,7 @@ const Appointments = () => {
       />
       {/* Pharmacy Directory Dialog */}
       <Dialog open={showPharmacyDirectory} onOpenChange={setShowPharmacyDirectory}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl w-full sm:w-[95vw] h-[90vh] sm:h-auto p-2 sm:p-6 overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Select a Pharmacy</DialogTitle>
           </DialogHeader>

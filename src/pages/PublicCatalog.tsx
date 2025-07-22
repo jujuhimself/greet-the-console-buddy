@@ -37,7 +37,12 @@ const PublicCatalog = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      let productsQuery = supabase.from('products').select('*').eq('status', 'in-stock').gt('stock', 0).order('name');
+      let productsQuery = supabase
+        .from('products')
+        .select('*, wholesaler:profiles(id, business_name, name)')
+        .eq('status', 'in-stock')
+        .gt('stock', 0)
+        .order('name');
       let productsData, error;
       
       if (!user || user.role === 'individual') {
@@ -63,10 +68,8 @@ const PublicCatalog = () => {
         ...product,
         price: product.sell_price || 0,
         min_stock: product.min_stock_level || 0,
-        pharmacy_name: product.profiles?.business_name || 
-                      product.profiles?.pharmacy_name || 
-                      product.profiles?.name || 
-                      'Unknown Pharmacy',
+        wholesaler_name: product.wholesaler?.business_name || product.wholesaler?.name || 'Unknown Wholesaler',
+        pharmacy_name: product.profiles?.business_name || product.profiles?.pharmacy_name || product.profiles?.name || 'Unknown Pharmacy',
         pharmacy_id: product.user_id || product.pharmacy_id
       }));
 
@@ -458,6 +461,9 @@ const PublicCatalog = () => {
                           <p className="text-gray-600">{product.category}</p>
                           {product.manufacturer && (
                             <p className="text-sm text-gray-500">by {product.manufacturer}</p>
+                          )}
+                          {product.wholesaler_name && (
+                            <p className="text-sm text-blue-700">from {product.wholesaler_name}</p>
                           )}
                           <p className="text-sm text-blue-600">from {product.pharmacy_name}</p>
                           <div className="flex gap-1 mt-2">

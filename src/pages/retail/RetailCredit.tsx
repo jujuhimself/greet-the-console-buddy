@@ -9,6 +9,7 @@ import { toast } from "@/hooks/use-toast";
 import ExportButton from "@/components/ExportButton";
 import DateRangeFilter from "@/components/DateRangeFilter";
 import UserSelect from "@/components/UserSelect";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 
 export default function RetailCredit() {
   const { user } = useAuth();
@@ -21,6 +22,8 @@ export default function RetailCredit() {
   const [to, setTo] = useState("");
   const [status, setStatus] = useState("");
   const [userId, setUserId] = useState("");
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [showTransactionsFor, setShowTransactionsFor] = useState<string | null>(null);
 
   useEffect(() => {
     creditService.fetchAccounts().then(setAccounts);
@@ -57,6 +60,11 @@ export default function RetailCredit() {
       toast({ title: "Error creating account", variant: "destructive" });
     }
   }
+
+  const fetchTransactions = async (accountId: string) => {
+    const { data, error } = await creditService.fetchTransactions(accountId);
+    setTransactions(data || []);
+  };
 
   return (
     <div>
@@ -140,6 +148,80 @@ export default function RetailCredit() {
                 </tbody>
               </table>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Credit Accounts Table */}
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Credit Accounts</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {filtered.length === 0 ? (
+            <p className="text-gray-500">No credit accounts found.</p>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr>
+                  <th>Wholesaler</th>
+                  <th>Credit Limit</th>
+                  <th>Available Credit</th>
+                  <th>Current Balance</th>
+                  <th>Status</th>
+                  <th>History</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(acc => (
+                  <tr key={acc.id}>
+                    <td>{acc.wholesaler_user_id}</td>
+                    <td>TZS {acc.credit_limit.toLocaleString()}</td>
+                    <td className="text-green-700">TZS {(acc.credit_limit - acc.current_balance).toLocaleString()}</td>
+                    <td className="text-red-700">TZS {acc.current_balance.toLocaleString()}</td>
+                    <td>{acc.status}</td>
+                    <td>
+                      <Dialog open={showTransactionsFor === acc.id} onOpenChange={open => setShowTransactionsFor(open ? acc.id : null)}>
+                        <DialogTrigger asChild>
+                          <Button size="sm" variant="outline" onClick={() => fetchTransactions(acc.id)}>
+                            View History
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-lg w-full">
+                          <DialogHeader>
+                            <DialogTitle>Credit History</DialogTitle>
+                          </DialogHeader>
+                          {transactions.length === 0 ? (
+                            <p className="text-gray-500">No transactions found.</p>
+                          ) : (
+                            <table className="w-full text-xs">
+                              <thead>
+                                <tr>
+                                  <th>Date</th>
+                                  <th>Type</th>
+                                  <th>Amount</th>
+                                  <th>Reference</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {transactions.map(tx => (
+                                  <tr key={tx.id}>
+                                    <td>{new Date(tx.transaction_date).toLocaleDateString()}</td>
+                                    <td>{tx.transaction_type}</td>
+                                    <td>TZS {tx.amount.toLocaleString()}</td>
+                                    <td>{tx.reference || '-'}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </DialogContent>
+                      </Dialog>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </CardContent>
       </Card>

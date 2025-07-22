@@ -163,6 +163,7 @@ const AppointmentScheduler = ({ isOpen, onClose, onAppointmentCreated, lab, appo
           provider_type: "lab",
           status: "scheduled" as 'scheduled',
           notes: notes || `Test: ${selectedTest.name}\nPreparation: ${selectedTest.preparation}`,
+          priority,
         };
         await appointmentService.createAppointment(appointmentData);
         toast({
