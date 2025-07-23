@@ -1,12 +1,13 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, Send, Bot, User, Lightbulb, TrendingUp, Package } from "lucide-react";
+import { MessageCircle, Send, Bot, User, Lightbulb, TrendingUp, Package, Pill, Stethoscope } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { treatmentGuidelines, findGuidelines, TreatmentGuideline } from "@/data/treatmentGuidelines";
 
 interface Message {
   id: string;
@@ -26,10 +27,12 @@ const ChatbotAssistant = () => {
       content: "Hello! I'm your pharmacy assistant. I can help you with inventory insights, restock suggestions, and generate invoices. What would you like to know?",
       timestamp: new Date(),
       suggestions: [
-        "Show me low stock items",
+        "What’s the first-line treatment for malaria in adults?",
+        "What’s the dosage for paracetamol in children?",
+        "Show me inventory insights",
         "Generate sales report",
-        "Suggest restocking priorities",
-        "Create invoice template"
+        "Treatment guidelines",
+        "Cardiac arrest protocol"
       ]
     }
   ]);
@@ -60,8 +63,167 @@ const ChatbotAssistant = () => {
     }, 1000);
   };
 
+  const formatGuidelineResponse = (guidelines: TreatmentGuideline[]): string => {
+    if (guidelines.length === 0) {
+      return "I couldn't find specific treatment guidelines for that condition. Would you like me to search for something else?";
+    }
+
+    return guidelines.map(guideline => {
+      return `🏥 **${guideline.condition}**\n\n` +
+        `🔍 **Common Symptoms:** ${guideline.symptoms.join(', ')}\n\n` +
+        `💊 **First-line Treatment:**\n${guideline.firstLine.map(tx => 
+          `• ${tx.medication} ${tx.dosage} - ${tx.duration}${tx.notes ? ` (${tx.notes})` : ''}`
+        ).join('\n')}\n\n` +
+        (guideline.secondLine ? 
+          `💊 **Second-line (if needed):**\n${guideline.secondLine.map(tx => 
+            `• ${tx.medication} ${tx.dosage} - ${tx.duration}${tx.notes ? ` (${tx.notes})` : ''}`
+          ).join('\n')}\n\n` : '') +
+        `⚠️ **When to Refer:**\n${guideline.whenToRefer.map(item => `• ${item}`).join('\n')}\n\n` +
+        `💡 **Patient Counseling:**\n${guideline.patientCounseling.map(item => `• ${item}`).join('\n')}`;
+    }).join('\n\n---\n\n');
+  };
+
   const generateBotResponse = (userMessage: string): Message => {
     const message = userMessage.toLowerCase();
+
+    // --- Dosage calculator helper ---
+    const dosageCalculator = (msg: string): Message => {
+      const weightMatch = msg.match(/(\d+\.?\d*)\s*(kg|kilograms?)/);
+      if (!weightMatch) {
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: 'Please provide patient weight in kg, e.g., "calculate amoxicillin 18 kg".',
+          timestamp: new Date(),
+        };
+      }
+      const weight = parseFloat(weightMatch[1]);
+      // supported drugs
+      if (msg.includes('amoxicillin')) {
+        const doseMgPerKg = 25; // example 25 mg/kg/day divided q8h
+        const totalDaily = doseMgPerKg * weight;
+        const singleDose = totalDaily / 3;
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: `🧮 **Amoxicillin Dose**\n\nWeight: ${weight} kg\nDaily dose: ${doseMgPerKg} mg/kg → **${totalDaily.toFixed(0)} mg/day**\nDivide into 3 doses: **${singleDose.toFixed(0)} mg** every 8 h.`,
+          timestamp: new Date(),
+        };
+      }
+      if (msg.includes('paracetamol') || msg.includes('acetaminophen')) {
+        const doseMgPerKg = 15; // 15 mg/kg q6h
+        const singleDose = doseMgPerKg * weight;
+        const maxDaily = 60 * weight;
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: `🧮 **Paracetamol Dose**\n\nWeight: ${weight} kg\nSingle dose: **${singleDose.toFixed(0)} mg** (15 mg/kg) every 6 h.\nDo not exceed **${maxDaily.toFixed(0)} mg** in 24 h.`,
+          timestamp: new Date(),
+        };
+      }
+      return {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: 'Supported drugs: amoxicillin, paracetamol. Include weight in kg e.g., "calculate amoxicillin 18 kg".',
+        timestamp: new Date(),
+      };
+    };
+
+    // --- Intent-based queries ---
+    // First-line treatment intent
+    const firstLineMatch = message.match(/first[- ]?line treatment for (.+)/);
+    if (firstLineMatch) {
+      const conditionQuery = firstLineMatch[1].trim();
+      const guide = findGuidelines(conditionQuery)[0];
+      if (guide) {
+        const first = guide.firstLine.map(tx => `• ${tx.medication} ${tx.dosage} – ${tx.duration}${tx.notes ? ` (${tx.notes})` : ''}`).join('\n');
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: `🏥 **${guide.condition} – First-line Treatment**\n\n${first}\n\n*Always confirm diagnosis and consider contraindications.*`,
+          timestamp: new Date(),
+          suggestions: ['Dosage calculator', 'More guidelines']
+        };
+      }
+    }
+
+    // Medication usage intent ("Can I use doxycycline for pneumonia?")
+    const useMatch = message.match(/can i use ([a-zA-Z ]+) for ([a-zA-Z ]+)\?/);
+    if (useMatch) {
+      const drug = useMatch[1].trim();
+      const condQuery = useMatch[2].trim();
+      const guide = findGuidelines(condQuery)[0];
+      if (guide) {
+        const inFirst = guide.firstLine.some(tx => tx.medication.toLowerCase().includes(drug));
+        const inSecond = (guide.secondLine || []).some(tx => tx.medication.toLowerCase().includes(drug));
+        if (inFirst || inSecond) {
+          return {
+            id: Date.now().toString(),
+            type: 'bot',
+            content: `✅ Yes, **${drug}** is listed in the standard treatment guideline for **${guide.condition}**${inSecond && !inFirst ? ' (second-line option)' : ''}.\n\nPlease ensure correct dosing and check patient contraindications.`,
+            timestamp: new Date(),
+            suggestions: ['Show dosage', 'More guidelines']
+          };
+        }
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: `⚠️ **${drug}** is not listed as a recommended treatment for **${guide.condition}** in the guideline. Consider first-line options instead. When in doubt, consult a pharmacist or clinician.`,
+          timestamp: new Date(),
+        };
+      }
+    }
+
+    // Pediatric dosage intent ("dosage for paracetamol in children")
+    const doseMatch = message.match(/dosage (?:for )?([a-zA-Z ]+)(?: in children)?/);
+    if (doseMatch) {
+      const drug = doseMatch[1].trim().toLowerCase();
+      if (drug.includes('paracetamol') || drug.includes('acetaminophen')) {
+        return {
+          id: Date.now().toString(),
+          type: 'bot',
+          content: `🧮 **Paracetamol Pediatric Dosing**\n\n10–15 mg/kg per dose orally every 6–8 hours (max 60 mg/kg/day).\n\nExample: 15 kg child → 150–225 mg per dose.\nIf weight unknown, use age-based charts. Always verify calculations and monitor total daily intake.`,
+          timestamp: new Date(),
+          suggestions: ['Calculate paracetamol 15 kg', 'More guidelines']
+        };
+      }
+    }
+
+    // --- Generic guideline utility responses ---
+    if (message.includes('dosage') || message.includes('calculate')) {
+      return dosageCalculator(message);
+    }
+    if (message.includes('interaction')) {
+      return {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `⚠️ **Drug Interaction Checker**\n\nType two or more drug names separated by commas and I'll look for major interactions.`,
+        timestamp: new Date(),
+        suggestions: ['Metformin, Ciprofloxacin', 'Warfarin, Amoxicillin', 'Ibuprofen, Prednisolone'],
+      };
+    }
+    if (message.includes('more guidelines') || message.includes('all guidelines') || message === 'treatment guidelines' || message.includes('list guidelines')) {
+      const list = treatmentGuidelines.map(g => `• ${g.condition}`).join('\n');
+      return {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `📚 **Available Standard Treatment Guidelines**\n\n${list}\n\nAsk me about any of these conditions (e.g., "malaria" or "cardiac arrest protocol").`,
+        timestamp: new Date(),
+        suggestions: ['Malaria', 'Cardiac arrest', 'Shock'],
+      };
+    }
+
+    // --- Attempt guideline lookup regardless of keywords ---
+    const guidelines = findGuidelines(message);
+    if (guidelines.length > 0) {
+      return {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `💊 **Treatment Guidelines**\n\n${formatGuidelineResponse(guidelines)}\n\n*Note: These are general guidelines. Always consider patient-specific factors and contraindications.*`,
+        timestamp: new Date(),
+        suggestions: ['More guidelines', 'Dosage calculator', 'Drug interactions'],
+      };
+    }
     
     if (message.includes('low stock') || message.includes('restock')) {
       return {
@@ -128,15 +290,66 @@ const ChatbotAssistant = () => {
     };
   };
 
-  const handleSuggestionClick = (suggestion: string) => {
+  const handleSuggestionClick = useCallback((suggestion: string) => {
+    // Handle specific suggestion actions
+    if (suggestion === 'View all available guidelines') {
+      const allConditions = treatmentGuidelines.map(g => g.condition).join('\n• ');
+      const allGuidelinesMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `📚 **Available Treatment Guidelines**\n\nHere are all the conditions I have guidelines for:\n\n• ${allConditions}\n\nType the name of a condition for detailed treatment information.`,
+        timestamp: new Date(),
+        suggestions: treatmentGuidelines.slice(0, 4).map(g => g.condition)
+      };
+      setMessages(prev => [...prev, allGuidelinesMessage]);
+      return;
+    }
+    
+    // Check if the suggestion matches any condition
+    const matchingGuideline = treatmentGuidelines.find(g => 
+      g.condition.toLowerCase() === suggestion.toLowerCase()
+    );
+    
+    if (matchingGuideline) {
+      const guidelineMessage: Message = {
+        id: Date.now().toString(),
+        type: 'bot',
+        content: `💊 **Treatment Guidelines**\n\n${formatGuidelineResponse([matchingGuideline])}\n\n*Note: These are general guidelines. Always consider patient-specific factors and contraindications.*`,
+        timestamp: new Date(),
+        suggestions: [
+          'View all available guidelines',
+          'Dosage calculator',
+          'Drug interactions',
+          'Patient counseling tips'
+        ]
+      };
+      setMessages(prev => [...prev, guidelineMessage]);
+      return;
+    }
+    
+    // Default behavior for other suggestions
     handleSendMessage(suggestion);
-  };
+  }, [handleSendMessage]);
 
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-bold">AI Assistant</h2>
-        <p className="text-gray-600">Get intelligent insights and assistance for your pharmacy operations</p>
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Stethoscope className="h-6 w-6 text-blue-600" />
+          Pharmacy AI Assistant
+        </h2>
+        <p className="text-gray-600 mt-1">Get intelligent treatment guidance and operational support for your pharmacy</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Badge variant="outline" className="cursor-pointer hover:bg-blue-50" onClick={() => handleSuggestionClick('UTI')}>
+            <Pill className="h-3 w-3 mr-1" /> UTI
+          </Badge>
+          <Badge variant="outline" className="cursor-pointer hover:bg-blue-50" onClick={() => handleSuggestionClick('URTI')}>
+            <Pill className="h-3 w-3 mr-1" /> Common Cold
+          </Badge>
+          <Badge variant="outline" className="cursor-pointer hover:bg-blue-50" onClick={() => handleSuggestionClick('View all available guidelines')}>
+            <Pill className="h-3 w-3 mr-1" /> All Guidelines
+          </Badge>
+        </div>
       </div>
 
       <Card className="h-96">

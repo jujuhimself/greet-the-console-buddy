@@ -41,7 +41,7 @@ const HealthSummary = ({ totalOrders, recentOrders }: HealthSummaryProps) => {
                 <Package className="h-12 w-12 mx-auto mb-4 text-gray-300" />
                 <p>No recent orders found</p>
                 <Button asChild className="mt-4">
-                  <Link to="/products">Browse Medicines</Link>
+                  <Link to="/catalog">Browse Medicines</Link>
                 </Button>
               </div>
             ) : (

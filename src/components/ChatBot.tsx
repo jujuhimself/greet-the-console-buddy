@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { MessageCircle, X, Send, Bot, User, HelpCircle, TrendingUp, FileText, Stethoscope, Pill, Calculator, Users, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { findGuidelines, treatmentGuidelines } from '@/data/treatmentGuidelines';
 
 interface Message {
   id: string;
@@ -51,7 +52,7 @@ const ChatBot = () => {
           case 'individual':
             return `Hello ${user.name}! 👋 I'm your personal health assistant. I can help with medication tracking, symptom checking, finding nearby services, and connecting you with pharmacists. What can I help you with today?`;
           case 'retail':
-            return `Welcome back, ${user.pharmacyName}! 🏪 I'm your business assistant. I can provide inventory insights, restock suggestions, order summaries, and even generate quick invoices. How can I assist your pharmacy today?`;
+            return `Welcome back, ${user.pharmacyName}! 🏪 I'm your business assistant. I can provide inventory insights, restock suggestions, standard treatment guidelines, order summaries, and even generate quick invoices. How can I assist your pharmacy today?`;
           case 'wholesale':
             return `Hello ${user.businessName}! 📦 I can help with bulk order planning, profitability analysis, distributor management, and retailer support. What would you like to explore?`;
           case 'lab':
@@ -70,7 +71,7 @@ const ChatBot = () => {
           case 'individual':
             return ['Track my medications', 'Check symptoms', 'Find nearby pharmacies', 'Ask a pharmacist'];
           case 'retail':
-            return ['Inventory insights', 'Restock suggestions', 'Order summary', 'Generate invoice'];
+            return ['What’s the first-line treatment for malaria in adults?', 'What’s the dosage for paracetamol in children?', 'Show me inventory insights', 'Generate sales report', 'Treatment guidelines', 'Cardiac arrest protocol'];
           case 'wholesale':
             return ['Bulk order assistant', 'Profit analysis', 'Retailer management', 'Market trends'];
           case 'lab':
@@ -152,7 +153,129 @@ const ChatBot = () => {
     };
   };
 
-  // Retail Pharmacy Features
+  // Treatment Guideline Helper for Retail Pharmacy
+const dosageCalculator = (msg: string): Message | null => {
+  const weightMatch = msg.match(/(\d+\.?\d*)\s*(kg|kilograms?)/i);
+  if (!weightMatch) return null;
+  const weight = parseFloat(weightMatch[1]);
+  if (msg.includes('amoxicillin')) {
+    const perKg = 25;
+    const daily = perKg * weight;
+    return {
+      id: Date.now().toString(),
+      type: 'bot',
+      content: `🧮 **Amoxicillin Dose**\n\nWeight: ${weight} kg\nDaily dose: ${perKg} mg/kg → ${daily.toFixed(0)} mg/day\nSplit into 3 doses: ${(daily/3).toFixed(0)} mg q8h`,
+      timestamp: new Date(),
+      category: 'medical'
+    };
+  }
+  if (msg.includes('paracetamol') || msg.includes('acetaminophen')) {
+    const perKg = 15;
+    const single = perKg * weight;
+    return {
+      id: Date.now().toString(),
+      type: 'bot',
+      content: `🧮 **Paracetamol Dose**\n\nWeight: ${weight} kg\nSingle dose: ${single.toFixed(0)} mg (15 mg/kg) q6h\nMax 24-h: ${(60*weight).toFixed(0)} mg`,
+      timestamp: new Date(),
+      category: 'medical'
+    };
+  }
+  return {
+    id: Date.now().toString(),
+    type: 'bot',
+    content: 'Supported drugs: amoxicillin, paracetamol. Include weight e.g., "calculate amoxicillin 18 kg"',
+    timestamp: new Date(),
+    category: 'medical'
+  };
+};
+const listAvailableGuidelines = () => treatmentGuidelines.map(g => `• ${g.condition}`).join('\n');
+
+const getDosageCalculatorResponse = (): Message => ({
+  id: Date.now().toString(),
+  type: 'bot',
+  content: `🧮 **Dosage Calculator**\n\nEnter the medication name and patient weight/age, and I'll help calculate the appropriate pediatric or weight-based dose. (Feature coming soon – meanwhile, follow standard references like BNF or WHO weight bands.)`,
+  timestamp: new Date(),
+  suggestions: ['Calculate amoxicillin dose', 'Calculate paracetamol dose', 'Cancel'],
+  category: 'medical'
+});
+
+const getDrugInteractionResponse = (): Message => ({
+  id: Date.now().toString(),
+  type: 'bot',
+  content: `⚠️ **Drug Interaction Checker**\n\nPlease enter two or more drug names separated by commas and I'll check for major interactions. (Prototype – consult a pharmacist for final confirmation.)`,
+  timestamp: new Date(),
+  suggestions: ['Metformin, Ciprofloxacin', 'Warfarin, Amoxicillin', 'Ibuprofen, Prednisolone'],
+  category: 'medical'
+});
+
+const getTreatmentGuidelineResponse = (query: string): Message | null => {
+  const lower = query.toLowerCase();
+
+  // dosage calculator
+  if (lower.includes('dosage') || lower.includes('calculate')) {
+    const calc = dosageCalculator(lower);
+    if (calc) return calc;
+  }
+
+  // list guidelines
+  if (lower.includes('more guidelines') || lower.includes('all guidelines') || lower === 'treatment guidelines') {
+    return {
+      id: Date.now().toString(),
+      type: 'bot',
+      content: `📚 **Available Standard Treatment Guidelines**\n\n${listAvailableGuidelines()}\n\nAsk me about any condition.`,
+      timestamp: new Date(),
+      category: 'medical',
+      suggestions: ['Malaria', 'Shock', 'Cardiac arrest']
+    };
+  }
+
+  const matches = findGuidelines(query);
+  // If no guideline context and no keywords, return null to let other handlers work
+  if (!matches.length && !lower.includes('guideline') && !lower.includes('treatment') && !lower.includes('protocol') && !lower.includes('dosage') && !lower.includes('calculate')) {
+    return null;
+  }
+  // Handle generic keyword queries first
+  if (lower.includes('dosage')) return getDosageCalculatorResponse();
+  if (lower.includes('interaction')) return getDrugInteractionResponse();
+  if (lower.includes('more') || lower === 'treatment guidelines' || lower.includes('guidelines')) {
+    return {
+      id: Date.now().toString(),
+      type: 'bot',
+      content: `📚 **Available Treatment Guidelines**\n\n${listAvailableGuidelines()}\n\nAsk me about any of these conditions (e.g., "Treatment for malaria").`,
+      timestamp: new Date(),
+      suggestions: ['Malaria treatment', 'Cardiac arrest protocol', 'Shock management'],
+      category: 'medical'
+    };
+  }
+
+  if (!matches.length) {
+    return {
+      id: Date.now().toString(),
+      type: 'bot',
+      content: `❌ I couldn't find a standard treatment guideline matching "${query}". Try a different condition or symptom keyword.`,
+      timestamp: new Date(),
+      suggestions: ['List available guidelines', 'Malaria treatment', 'Cardiac arrest protocol'],
+      category: 'medical'
+    };
+  }
+
+  const formatted = matches.map(g => {
+    const first = g.firstLine.map(fl => `• ${fl.medication} – ${fl.dosage} for ${fl.duration}${fl.notes ? ` (${fl.notes})` : ''}`).join('\n');
+    const second = g.secondLine && g.secondLine.length ? `\nSecond-line:\n${g.secondLine.map(sl => `• ${sl.medication} – ${sl.dosage} for ${sl.duration}${sl.notes ? ` (${sl.notes})` : ''}`).join('\n')}` : '';
+    return `### ${g.condition}\n\nFirst-line:\n${first}${second}\n\n**Precautions:** ${g.precautions.join(', ')}\n**Refer if:** ${g.whenToRefer.join(', ')}\n**Counseling:** ${g.patientCounseling.join(', ')}`;
+  }).join('\n\n---\n\n');
+
+  return {
+    id: Date.now().toString(),
+    type: 'bot',
+    content: formatted,
+    timestamp: new Date(),
+    suggestions: ['More guidelines', 'Dosage calculator', 'Drug interactions'],
+    category: 'medical'
+  };
+};
+
+// Retail Pharmacy Features
   const getInventoryInsightsResponse = (): Message => {
     return {
       id: Date.now().toString(),
@@ -415,6 +538,12 @@ const ChatBot = () => {
   const getBotResponse = (userMessage: string): Message => {
     const message = userMessage.toLowerCase();
     
+    // Retail pharmacy STG check first
+    if (user?.role === 'retail') {
+      const stg = getTreatmentGuidelineResponse(userMessage);
+      if (stg) return stg;
+    }
+    
     // Role-specific advanced features
     if (user?.role === 'individual') {
       if (message.includes('medication') || message.includes('pill') || message.includes('track')) {
@@ -500,7 +629,7 @@ const ChatBot = () => {
       suggestions: user?.role === 'individual' ? 
         ['Track my medications', 'Find nearby services', 'Ask a pharmacist', 'Check symptoms'] :
         user?.role === 'retail' ?
-        ['Show inventory insights', 'Restock suggestions', 'Order summary', 'Generate invoice'] :
+        ['Show me inventory insights', 'Generate sales report', 'Treatment guidelines', 'Cardiac arrest protocol'] :
         user?.role === 'wholesale' ?
         ['Bulk order planning', 'Profitability analysis', 'Distributor support'] :
         user?.role === 'lab' ?

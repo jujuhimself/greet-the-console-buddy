@@ -15,13 +15,7 @@ const PharmacyQuickActions = ({ cartItems }: PharmacyQuickActionsProps) => {
         <CardTitle className="text-2xl">Quick Actions</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Button asChild className="h-24 flex-col bg-blue-600 hover:bg-blue-700 text-white">
-            <Link to="/products">
-              <Package className="h-8 w-8 mb-2" />
-              Browse Products
-            </Link>
-          </Button>
+        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <Button asChild variant="outline" className="h-24 flex-col border-2 hover:bg-gray-50">
             <Link to="/cart">
               <ShoppingCart className="h-8 w-8 mb-2" />

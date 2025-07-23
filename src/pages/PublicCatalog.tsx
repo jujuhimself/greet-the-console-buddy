@@ -37,20 +37,21 @@ const PublicCatalog = () => {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
+      // First fetch the products with minimal branch info
       let productsQuery = supabase
         .from('products')
-        .select('*, wholesaler:profiles(id, business_name, name)')
+        .select('*, branch:branches(id, name, address)')
         .eq('status', 'in-stock')
         .gt('stock', 0)
         .order('name');
       let productsData, error;
       
       if (!user || user.role === 'individual') {
-        // Individuals: only public products
-        ({ data: productsData, error } = await productsQuery.eq('is_public_product', true));
+        // Individuals: show any product flagged public OR retail
+        ({ data: productsData, error } = await productsQuery.or('is_public_product.eq.true,is_retail_product.eq.true'));
       } else if (user.role === 'retail') {
-        // Retailers: public and wholesale products (valid .or() filter)
-        ({ data: productsData, error } = await productsQuery.or('is_public_product.eq.true,is_wholesale_product.eq.true'));
+        // Retailers: only show public products
+        ({ data: productsData, error } = await productsQuery.eq('is_public_product', true));
       } else if (user.role === 'wholesale') {
         // Wholesalers: only their own products
         ({ data: productsData, error } = await productsQuery.eq('user_id', user.id));
@@ -68,9 +69,9 @@ const PublicCatalog = () => {
         ...product,
         price: product.sell_price || 0,
         min_stock: product.min_stock_level || 0,
-        wholesaler_name: product.wholesaler?.business_name || product.wholesaler?.name || 'Unknown Wholesaler',
-        pharmacy_name: product.profiles?.business_name || product.profiles?.pharmacy_name || product.profiles?.name || 'Unknown Pharmacy',
-        pharmacy_id: product.user_id || product.pharmacy_id
+        wholesaler_name: product.branch?.name || 'Unknown Wholesaler',
+        pharmacy_name: product.branch?.name || 'Unknown Pharmacy',
+        pharmacy_id: product.branch_id || product.pharmacy_id || ''
       }));
 
       setProducts(transformedProducts);
