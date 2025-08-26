@@ -8,6 +8,7 @@ import { BranchProvider } from "@/contexts/BranchContext";
 import Navbar from "@/components/Navbar";
 import AppRoutes from "./routes/AppRoutes";
 import ChatBot from "@/components/ChatBot";
+import { SubscriptionInit } from "@/components/subscription/SubscriptionInit";
 
 const queryClient = new QueryClient();
 
@@ -19,11 +20,13 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <BranchProvider>
-            <div className="min-h-screen bg-gray-50">
-              <Navbar />
-              <AppRoutes />
-              <ChatBot />
-            </div>
+            <SubscriptionInit>
+              <div className="min-h-screen bg-gray-50">
+                <Navbar />
+                <AppRoutes />
+                <ChatBot />
+              </div>
+            </SubscriptionInit>
           </BranchProvider>
         </AuthProvider>
       </BrowserRouter>

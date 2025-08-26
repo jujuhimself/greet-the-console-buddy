@@ -16,6 +16,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 // Add the missing Button import here
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { SubscriptionBanner } from "@/components/subscription/SubscriptionBanner";
 
 // Define type for orders
 type WholesaleOrder = {
@@ -133,7 +134,7 @@ const WholesaleDashboard = () => {
       const { data: productData } = await supabase
         .from('products')
         .select('id, stock, min_stock')
-        .eq('wholesaler_id', user.id);
+        .eq('owner_id', user.id); // Using owner_id instead of wholesaler_id
 
       if (productData) {
         lowStockItems = productData.filter((prod: any) => Number(prod.stock) <= Number(prod.min_stock)).length;
@@ -342,6 +343,9 @@ const WholesaleDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <SubscriptionBanner />
+        </div>
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Wholesale Dashboard

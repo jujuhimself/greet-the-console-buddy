@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { auditService } from '@/services/auditService';
+import { UserSubscription, SubscriptionPlan, SUBSCRIPTION_PLANS } from '@/types/subscription';
 
 export interface User {
   id: string;
@@ -37,11 +38,13 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   session: Session | null;
+  userSubscription: UserSubscription | null;
   login: (email: string, password: string) => Promise<{ success: boolean; error?: string; redirectTo?: string }>;
   logout: () => void;
   register: (userData: Partial<User> & { password: string }) => Promise<{ success: boolean; error?: string }>;
   isLoading: boolean;
   getDashboardRoute: (user?: User | null) => string;
+  updateSubscription: (plan: SubscriptionPlan) => Promise<{ success: boolean; error?: string }>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -57,6 +60,7 @@ export const useAuth = () => {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
+  const [userSubscription, setUserSubscription] = useState<UserSubscription | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Helper function to get dashboard route based on user role
@@ -291,8 +295,85 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   };
 
+  const updateSubscription = async (plan: SubscriptionPlan): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'No user logged in' };
+    
+    try {
+      const now = new Date();
+      const complimentaryEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000); // 30 days complimentary
+      const nextBillingDate = new Date(complimentaryEndDate.getTime() + 30 * 24 * 60 * 60 * 1000); // Next billing after complimentary
+
+      const newSubscription: UserSubscription = {
+        id: user.id, // Using user.id as the subscription ID since it's in the profiles table
+        userId: user.id,
+        plan,
+        status: 'trial',
+        startDate: now.toISOString(),
+        trialEndDate: complimentaryEndDate.toISOString(),
+        currentPeriodEnd: complimentaryEndDate.toISOString(),
+        cancelAtPeriodEnd: false,
+        nextBillingDate: nextBillingDate.toISOString()
+      };
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          subscription_status: 'trial',
+          subscription_plan: plan,
+          subscription_start_date: now.toISOString(),
+          subscription_trial_end_date: complimentaryEndDate.toISOString(),
+          subscription_period_end: complimentaryEndDate.toISOString(),
+          subscription_cancel_at_period_end: false,
+          subscription_next_billing_date: nextBillingDate.toISOString(),
+          max_staff_accounts: SUBSCRIPTION_PLANS[plan].features.maxStaffAccounts === 'unlimited' ? -1 : SUBSCRIPTION_PLANS[plan].features.maxStaffAccounts,
+          max_branches: SUBSCRIPTION_PLANS[plan].features.maxBranches === 'unlimited' ? -1 : SUBSCRIPTION_PLANS[plan].features.maxBranches
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+      
+      setUserSubscription(newSubscription);
+      
+      // Show success toast
+      import("@/hooks/use-toast").then(({ toast }) => {
+        toast({
+          title: "Subscription updated",
+          description: "Your subscription has been updated successfully.",
+          variant: "default",
+        });
+      });
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error updating subscription:', error);
+      // Show error toast
+      import("@/hooks/use-toast").then(({ toast }) => {
+        toast({
+          title: "Error updating subscription",
+          description: "There was an error updating your subscription. Please try again.",
+          variant: "destructive",
+        });
+      });
+
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'An unknown error occurred' 
+      };
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, session, login, logout, register, isLoading, getDashboardRoute }}>
+    <AuthContext.Provider value={{
+      user,
+      session,
+      userSubscription,
+      login,
+      logout,
+      register,
+      isLoading,
+      getDashboardRoute,
+      updateSubscription
+    }}>
       {children}
     </AuthContext.Provider>
   );

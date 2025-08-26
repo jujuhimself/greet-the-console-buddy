@@ -2,6 +2,8 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import RouteGuard from "@/components/RouteGuard";
 import StaffManagement from '@/components/retail/StaffManagement';
 import { useAuth } from "@/contexts/AuthContext";
+import { FeatureGuard } from "@/components/subscription/FeatureGuard";
+import SubscriptionPage from "@/pages/SubscriptionPage";
 
 // Index and Auth
 import Index from "@/pages/Index";
@@ -109,6 +111,11 @@ const AppRoutes = () => {
       <Route path="/register" element={<Register />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
       <Route path="/catalog" element={<Catalog />} />
+      <Route path="/subscription" element={
+        <RouteGuard>
+          <SubscriptionPage />
+        </RouteGuard>
+      } />
 
       {/* Individual User Routes */}
       <Route path="/individual" element={
@@ -195,7 +202,9 @@ const AppRoutes = () => {
       } />
       <Route path="/inventory-reports" element={
         <RouteGuard allowedRoles={['retail', 'wholesale']} requireApproval>
-          <InventoryReports />
+          <FeatureGuard feature="auditReports" fallback={<Navigate to="/subscription" replace />}>
+            <InventoryReports />
+          </FeatureGuard>
         </RouteGuard>
       } />
       <Route path="/products" element={

@@ -1,41 +1,36 @@
-import { useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
-import { Clock, Loader2, AlertTriangle, Store } from "lucide-react";
-
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
-
-import { BreadcrumbNavigation } from "@/components/BreadcrumbNavigation";
-import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { Clock, Loader2, AlertTriangle, Store } from "lucide-react";
+import { useNavigate, Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSubscription } from "@/hooks/use-subscription";
 import QuickReorder from "@/components/QuickReorder";
-import BarcodeScanner from '@/components/BarcodeScanner';
-import BusinessTools from '@/components/BusinessTools';
-import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
-
-import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
+import { BreadcrumbNavigation } from "@/components/BreadcrumbNavigation";
+import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
+import { NotificationService } from "@/components/NotificationSystem";
+import { supabase } from "@/integrations/supabase/client";
+import { useNotificationSubscription } from "@/hooks/useNotifications";
 import PharmacyStatsCards from "@/components/pharmacy/PharmacyStatsCards";
 import PharmacyQuickActions from "@/components/pharmacy/PharmacyQuickActions";
 import PharmacyAdditionalServices from "@/components/pharmacy/PharmacyAdditionalServices";
 import PharmacyRecentOrders from "@/components/pharmacy/PharmacyRecentOrders";
-
-import { useAuth } from "@/contexts/AuthContext";
-import { useSubscription } from "@/hooks/use-subscription";
-import { useNotificationSubscription } from "@/hooks/useNotifications";
-import { NotificationService } from "@/components/NotificationSystem";
-
-import { SUBSCRIPTION_PLANS } from "@/types/subscription";
-import { supabase } from "@/integrations/supabase/client";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { logError } from "@/utils/logger";
+import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
+import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useToast } from '@/hooks/use-toast';
+import BusinessTools from '@/components/BusinessTools';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import InventoryForecasting from '@/components/inventory/InventoryForecasting';
+import BarcodeScanner from '@/components/BarcodeScanner';
+import BranchManagement from './BranchManagement';
 
-export default function PharmacyDashboard() {
-  const { user, logout } = useAuth();
+const PharmacyDashboard = () => {
+  const { user } = useAuth();
   const navigate = useNavigate();
-  const { currentPlan, getMaxStaffAccounts, getMaxBranches } = useSubscription();
-  const maxStaffAccounts = getMaxStaffAccounts();
-  const maxBranches = getMaxBranches();
+  const { toast } = useToast();
+  const { subscription } = useSubscription();
 
   // Ensure real-time notifications are enabled for pharmacy users
   useNotificationSubscription();
@@ -58,13 +53,10 @@ export default function PharmacyDashboard() {
         throw ordersError;
       }
 
-      // For cart, still use localStorage
-      const cart = JSON.parse(localStorage.getItem(`bepawa_cart_${user.id}`) || '[]');
-
       const stats = {
         totalOrders: orders?.length || 0,
         pendingOrders: (orders || []).filter((o: any) => o.status === 'pending').length,
-        cartItems: cart.length
+        cartItems: 0
       };
       
       const recentOrders = (orders || []).slice(0, 5);
@@ -76,9 +68,33 @@ export default function PharmacyDashboard() {
 
   useEffect(() => {
     if (data && user?.pharmacyName) {
-        NotificationService.addSystemNotification(`Welcome back, ${user.pharmacyName}! Your dashboard has been updated.`);
+      NotificationService.addSystemNotification(`Welcome back, ${user.pharmacyName}! Your dashboard has been updated.`);
     }
   }, [data, user?.pharmacyName]);
+
+  // Show subscription notifications
+  useEffect(() => {
+    if (subscription) {
+      const endDate = new Date(subscription.status === 'trial' 
+        ? subscription.trialEndDate 
+        : subscription.currentPeriodEnd);
+      const daysLeft = Math.ceil((endDate.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysLeft <= 5 && daysLeft > 0) {
+        toast({
+          title: `${subscription.status === 'trial' ? 'Trial' : 'Subscription'} ending soon!`,
+          description: `Your ${subscription.status === 'trial' ? 'trial' : 'subscription'} will expire in ${daysLeft} days. Upgrade now to continue using all features.`,
+          variant: 'destructive',
+        });
+      } else if (daysLeft <= 0 && subscription.status !== 'expired') {
+        toast({
+          title: 'Subscription expired',
+          description: 'Your subscription has expired. Upgrade now to continue using all features.',
+          variant: 'destructive',
+        });
+      }
+    }
+  }, [subscription, toast]);
 
   const stats = data?.stats || { totalOrders: 0, pendingOrders: 0, cartItems: 0 };
   const recentOrders = data?.recentOrders || [];
@@ -143,36 +159,12 @@ export default function PharmacyDashboard() {
             </div>
           </div>
 
-          {/* Subscription Status Card */}
-          <Card className="mb-8 border-2 border-primary/20 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span role="img" aria-label="Subscription">⭐</span>
-                  <span>Subscription Status</span>
-                </div>
-                <SubscriptionStatus />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Current Plan</span>
-                  <span className="font-semibold">{SUBSCRIPTION_PLANS[currentPlan || 'basic'].name}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Staff Accounts</span>
-                  <span className="font-semibold">{maxStaffAccounts} allowed</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Branch Locations</span>
-                  <span className="font-semibold">{maxBranches} allowed</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Subscription Status */}
+          <div className="mb-8">
+            <SubscriptionStatus />
+          </div>
 
-          {/* Quick Access Cards for Forecasting and Barcode Scanner */}
+          {/* Quick Access Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <Link to="/pharmacy/forecast">
               <Card className="cursor-pointer hover:shadow-lg transition-shadow border-blue-200">
@@ -203,65 +195,30 @@ export default function PharmacyDashboard() {
                 <BarcodeScanner />
               </DialogContent>
             </Dialog>
-            <Link to="/retail/branches">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-purple-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-purple-700">
-                    <span role="img" aria-label="Branches">🏢</span> Branch Management
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Manage your branches, add new locations, and assign staff.</p>
-                </CardContent>
-              </Card>
-            </Link>
-            <Link to="/retail/branch-inventory">
-              <Card className="cursor-pointer hover:shadow-lg transition-shadow border-orange-200">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-orange-700">
-                    <span role="img" aria-label="Inventory">📦</span> Branch Inventory
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-gray-600">Manage inventory for your selected branch.</p>
-                </CardContent>
-              </Card>
-            </Link>
           </div>
 
           <PharmacyStatsCards stats={stats} />
           <QuickReorder />
 
-          {/* Analytics Dashboard */}
-          {/* Subscription Status */}
-          <div className="grid gap-6 mb-8 grid-cols-1 lg:grid-cols-4">
-            <div className="lg:col-span-1">
-              <SubscriptionStatus />
-            </div>
-            <div className="lg:col-span-3">
-              <Card className="shadow-lg border-0">
-                <CardHeader>
-                  <CardTitle className="text-2xl">Business Analytics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AnalyticsDashboard />
-                </CardContent>
-          </Card>
-            </div>
+          <div className="grid gap-6 mb-8 grid-cols-1">
+            <Card className="shadow-lg border-0">
+              <CardHeader>
+                <CardTitle className="text-2xl">Business Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnalyticsDashboard />
+              </CardContent>
+            </Card>
           </div>
 
           <PharmacyQuickActions cartItems={stats.cartItems} />
           <PharmacyAdditionalServices />
           <PharmacyRecentOrders recentOrders={recentOrders} />
-          
-          {/* Invoice Generator */}
-          <div className="mb-8">
-            <InvoiceGenerator />
-          </div>
-          
           <BusinessTools />
         </div>
       </div>
     </ErrorBoundary>
   );
-}
+};
+
+export default PharmacyDashboard;

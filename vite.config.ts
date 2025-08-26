@@ -8,6 +8,18 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3000',
+        changeOrigin: true
+      }
+    }
+  },
+  define: {
+    'process.env': {
+      STRIPE_SECRET_KEY: JSON.stringify(process.env.STRIPE_SECRET_KEY),
+      STRIPE_PUBLISHABLE_KEY: JSON.stringify(process.env.STRIPE_PUBLISHABLE_KEY),
+    }
   },
   plugins: [
     react(),

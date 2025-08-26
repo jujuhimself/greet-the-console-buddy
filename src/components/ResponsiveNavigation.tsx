@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { NavigationMenuConfig } from "@/utils/navigationConfig";
+import { SubscriptionStatus } from "./subscription/SubscriptionStatus";
 
 const ResponsiveNavigation = () => {
   const { user, logout } = useAuth();
@@ -95,6 +96,13 @@ const ResponsiveNavigation = () => {
             {user && (
               <div className="hidden md:block">
                 <GlobalSearch />
+              </div>
+            )}
+
+            {/* Subscription Status */}
+            {user && user.role !== 'admin' && user.role !== 'individual' && (
+              <div className="hidden md:block">
+                <SubscriptionStatus />
               </div>
             )}
 

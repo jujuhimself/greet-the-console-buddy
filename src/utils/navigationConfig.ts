@@ -72,6 +72,7 @@ export class NavigationMenuConfig {
         { label: "Credit Request", icon: React.createElement(CreditCard, { className: "w-4 h-4" }), href: "/credit-request" },
         { label: "POS", icon: React.createElement(FaCashRegister, { size: 16 }), href: "/pos" },
         { label: "Business Operations Hub", icon: React.createElement(Wrench, { className: "w-4 h-4" }), href: "/business-tools" },
+        { label: "Subscription", icon: React.createElement(CreditCard, { className: "w-4 h-4" }), href: "/subscription" },
         { label: "Settings", icon: React.createElement(Settings, { className: "w-4 h-4" }), href: "/settings" },
       ],
       wholesale: [
@@ -83,6 +84,7 @@ export class NavigationMenuConfig {
         { label: "POS", icon: React.createElement(FaCashRegister, { size: 16 }), href: "/pos" },
         { label: "Credit Management", icon: React.createElement(CreditCard, { className: "w-4 h-4" }), href: "/wholesale/business-tools/credit" },
         { label: "Business Operations Hub", icon: React.createElement(Wrench, { className: "w-4 h-4" }), href: "/business-tools" },
+        { label: "Subscription", icon: React.createElement(CreditCard, { className: "w-4 h-4" }), href: "/subscription" },
         { label: "Settings", icon: React.createElement(Settings, { className: "w-4 h-4" }), href: "/settings" },
       ],
       lab: [
@@ -91,6 +93,7 @@ export class NavigationMenuConfig {
         { label: "Appointments", icon: React.createElement(Calendar, { className: "w-4 h-4" }), href: "/lab/appointments" },
         { label: "Results Management", icon: React.createElement(Database, { className: "w-4 h-4" }), href: "/lab/results" },
         { label: "Quality Control", icon: React.createElement(Shield, { className: "w-4 h-4" }), href: "/lab/quality-control" },
+        { label: "Subscription", icon: React.createElement(CreditCard, { className: "w-4 h-4" }), href: "/subscription" },
         { label: "Settings", icon: React.createElement(Settings, { className: "w-4 h-4" }), href: "/settings" },
       ],
     };
