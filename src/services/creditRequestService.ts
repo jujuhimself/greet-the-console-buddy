@@ -72,7 +72,7 @@ class CreditRequestService {
       await auditService.logAction(
         'CREATE_CREDIT_REQUEST',
         'credit_request',
-        data.id,
+        String(data.id),
         { business_name: data.business_name, requested_amount: data.requested_amount }
       );
     } catch (e) {
@@ -81,7 +81,7 @@ class CreditRequestService {
     }
 
     // Cast here to CreditRequest (assumes Supabase schema is valid)
-    return data as CreditRequest;
+    return data as unknown as CreditRequest;
   }
 
   async getCreditRequests(): Promise<CreditRequest[]> {
@@ -156,7 +156,7 @@ class CreditRequestService {
     }
 
     // Cast - expects data matches CreditAccount
-    return data as CreditAccount;
+    return data as unknown as CreditAccount;
   }
 
   async updateCreditRequestStatus(
@@ -188,7 +188,7 @@ class CreditRequestService {
       throw new Error('No data returned after status update');
     }
 
-    return data as CreditRequest;
+    return data as unknown as CreditRequest;
   }
 }
 

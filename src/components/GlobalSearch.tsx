@@ -43,8 +43,8 @@ export const GlobalSearch = () => {
     }
 
     setLoading(true);
-    const searchTimeout = setTimeout(() => {
-      performSearch(query);
+    const searchTimeout = setTimeout(async () => {
+      await performSearch(query);
       setLoading(false);
     }, 300);
 
@@ -58,19 +58,19 @@ export const GlobalSearch = () => {
     })();
   }, []);
 
-  const performSearch = (searchQuery: string) => {
+  const performSearch = async (searchQuery: string) => {
     const searchResults: SearchResult[] = [];
     const lowercaseQuery = searchQuery.toLowerCase();
 
     // Search orders
-    const orders = dataService.getOrders();
+    const orders = await dataService.getOrders();
     orders.forEach(order => {
       if (order.id.toLowerCase().includes(lowercaseQuery) || 
-          order.pharmacyName?.toLowerCase().includes(lowercaseQuery)) {
+          order.order_number?.toLowerCase().includes(lowercaseQuery)) {
         searchResults.push({
           id: order.id,
-          title: `Order #${order.id}`,
-          subtitle: `${order.pharmacyName} - TZS ${order.total?.toLocaleString()}`,
+          title: `Order #${order.order_number || order.id}`,
+          subtitle: `Order ${order.order_type} - ${order.payment_status}`,
           type: 'order',
           route: '/orders',
           icon: <FileText className="h-4 w-4" />

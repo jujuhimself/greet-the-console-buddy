@@ -463,8 +463,8 @@ const PublicCatalog = () => {
                           {product.manufacturer && (
                             <p className="text-sm text-gray-500">by {product.manufacturer}</p>
                           )}
-                          {product.wholesaler_name && (
-                            <p className="text-sm text-blue-700">from {product.wholesaler_name}</p>
+                          {(product as any).wholesaler_name && (
+                            <p className="text-sm text-blue-700">from {(product as any).wholesaler_name}</p>
                           )}
                           <p className="text-sm text-blue-600">from {product.pharmacy_name}</p>
                           <div className="flex gap-1 mt-2">

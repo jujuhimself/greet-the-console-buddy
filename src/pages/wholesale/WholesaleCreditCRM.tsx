@@ -114,8 +114,13 @@ const WholesaleCreditCRM = () => {
   };
 
   const fetchTransactions = async (accountId: string) => {
-    const { data, error } = await creditService.fetchTransactions(accountId);
-    setTransactions(data || []);
+    try {
+      const result = await creditService.fetchTransactions(accountId);
+      setTransactions(result.data || []);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+      setTransactions([]);
+    }
   };
 
   const createCreditAccount = async () => {

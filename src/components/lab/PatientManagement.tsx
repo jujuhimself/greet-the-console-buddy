@@ -20,6 +20,7 @@ import {
   Plus,
   Edit,
   Eye,
+  X,
   Shield
 } from "lucide-react";
 import { format } from "date-fns";
@@ -392,7 +393,7 @@ const PatientManagement = () => {
                             size="sm"
                             onClick={() => handleRemoveAllergy(allergy)}
                           >
-                            <XCircle className="h-3 w-3" />
+                            <X className="h-3 w-3" />
                           </Button>
                         </div>
                       ))
@@ -423,7 +424,7 @@ const PatientManagement = () => {
                             size="sm"
                             onClick={() => handleRemoveMedication(medication)}
                           >
-                            <XCircle className="h-3 w-3" />
+                            <X className="h-3 w-3" />
                           </Button>
                         </div>
                       ))

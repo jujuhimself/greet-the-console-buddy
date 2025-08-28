@@ -154,7 +154,7 @@ const CreditRequestManagement = () => {
   };
 
   const pendingCount = requests.filter(r => r.status === 'pending').length;
-  const reviewCount = requests.filter(r => r.status === 'under-review').length;
+  const reviewCount = requests.filter(r => r.status === 'under_review').length;
   const approvedCount = requests.filter(r => r.status === 'approved').length;
   const totalRequested = requests.reduce((sum, r) => sum + r.requested_amount, 0);
 

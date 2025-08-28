@@ -80,7 +80,7 @@ const BarcodeScanner = () => {
         name: realProduct?.name || product.name,
         sku: realProduct?.sku || realProduct?.barcode || product.sku || product.id,
         stock: realProduct?.stock ?? product.stock,
-        min_stock: realProduct?.min_stock ?? realProduct?.minStock ?? product.min_stock,
+        min_stock: realProduct?.min_stock ?? product.min_stock,
         sell_price: realProduct?.sell_price || realProduct?.price || product.sell_price || 0,
         category: realProduct?.category || product.category || "-"
       };
@@ -127,12 +127,13 @@ const BarcodeScanner = () => {
     try {
       await inventoryService.createProduct({
         name: addProduct.name,
-        sku: addProduct.barcode, // backend expects 'sku'
+        sku: addProduct.barcode,
+        price: Number(addProduct.price),
         sell_price: Number(addProduct.price),
         category: addProduct.category,
         stock: Number(addProduct.stock),
-        min_stock: Number(addProduct.minStock), // backend expects 'min_stock'
-        status: 'in-stock',
+        min_stock: Number(addProduct.minStock),
+        status: 'in-stock' as const,
         buy_price: 0,
       });
       toast({ title: 'Product added!', description: addProduct.name });

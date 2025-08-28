@@ -31,7 +31,16 @@ const roleTemplates: Record<string, typeof defaultPermissions> = {
   'pos-only': { ...defaultPermissions, pos: true },
   'inventory-only': { ...defaultPermissions, inventory: true },
   'manager': { ...defaultPermissions, pos: true, inventory: true, orders: true, analytics: true },
-  'admin': { ...Object.fromEntries(Object.keys(defaultPermissions).map(k => [k, true])) },
+  'admin': {
+    pos: true,
+    inventory: true, 
+    orders: true,
+    business_tools: true,
+    analytics: true,
+    credit_crm: true,
+    audit: true,
+    alerts: true
+  },
 };
 
 const StaffManagement = () => {
@@ -163,7 +172,7 @@ const StaffManagement = () => {
       name: staffMember.name,
       email: staffMember.email,
       role: staffMember.role,
-      permissions: staffMember.permissions || { ...roleTemplates['pos-only'] },
+      permissions: (typeof staffMember.permissions === 'object' ? staffMember.permissions : { ...roleTemplates['pos-only'] }) as typeof defaultPermissions,
     });
     setIsAddDialogOpen(true);
   };

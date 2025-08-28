@@ -96,7 +96,7 @@ const PrescriptionHistoryItem = ({
       console.log('Sharing prescription:', prescription);
       // Insert into shared_prescriptions
       const { error: insertError } = await supabase.from('shared_prescriptions').insert({
-        prescription_id: prescription.id, // Use prescription.id (UUID)
+        prescription_id: prescription.filePath, // Use filePath as ID
         pharmacy_id: selectedPharmacy.id,
         user_id: user?.id || null,
         shared_at: new Date().toISOString(),
@@ -107,8 +107,8 @@ const PrescriptionHistoryItem = ({
         user_id: selectedPharmacy.id,
         title: 'New Prescription Shared',
         message: `A patient has shared a prescription (${prescription.fileName}) with your pharmacy.`,
-        type: 'general',
-        data: { prescription_id: prescription.id },
+        type: 'info',
+        data: { prescription_id: prescription.filePath },
       });
       setShareSuccess(true);
       toast({

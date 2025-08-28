@@ -89,7 +89,7 @@ const IndividualDashboard = () => {
           <HealthSummary totalOrders={stats.totalOrders} recentOrders={recentOrders} />
         </div>
         <div className="mt-8">
-          <LabResults labAppointments={labAppointments} />
+          <LabResults />
         </div>
       </div>
     </div>

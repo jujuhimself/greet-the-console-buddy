@@ -185,8 +185,8 @@ class PrescriptionService {
         acc[curr.id] = curr;
         return acc;
       }, {} as Record<string, Prescription>)
-    ).filter(prescription => validStatuses.includes(prescription.status))
-     .map(prescription => ({
+    ).filter((prescription: any) => validStatuses.includes(prescription.status))
+     .map((prescription: any) => ({
       ...prescription,
       status: prescription.status as Prescription['status'],
       file_path: prescription.file_path ?? null,

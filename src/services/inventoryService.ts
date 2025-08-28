@@ -18,6 +18,7 @@ export interface Product {
   is_retail_product?: boolean;
   is_public_product?: boolean;
   wholesaler_id?: string;
+  wholesaler_name?: string;
   pharmacy_id?: string;
   user_id?: string;
   created_at?: string;
@@ -25,6 +26,7 @@ export interface Product {
   branch_id?: string;
   item_type_id?: string;
   sku?: string;
+  barcode?: string;
   manufacturer?: string;
   dosage_form?: string;
   strength?: string;
