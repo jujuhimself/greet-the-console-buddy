@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { SubscriptionStatusCard } from "@/components/subscription/SubscriptionStatusCard";
 
 interface DashboardStats {
   totalProducts: number;
@@ -204,6 +205,9 @@ const RetailDashboard = () => {
         <h1 className="text-3xl font-bold">Retail Dashboard</h1>
         <p className="text-gray-600">Welcome back! Here's your pharmacy overview.</p>
       </div>
+
+      {/* Subscription Status */}
+      <SubscriptionStatusCard />
 
       {/* Stats Cards */}
       <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">

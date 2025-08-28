@@ -15,7 +15,7 @@ import BarcodeScanner from '@/components/BarcodeScanner';
 import BusinessTools from '@/components/BusinessTools';
 import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
 
-import { SubscriptionStatus } from "@/components/subscription/SubscriptionStatus";
+import { SubscriptionStatusCard } from "@/components/subscription/SubscriptionStatusCard";
 import PharmacyStatsCards from "@/components/pharmacy/PharmacyStatsCards";
 import PharmacyQuickActions from "@/components/pharmacy/PharmacyQuickActions";
 import PharmacyAdditionalServices from "@/components/pharmacy/PharmacyAdditionalServices";
@@ -144,33 +144,9 @@ export default function PharmacyDashboard() {
           </div>
 
           {/* Subscription Status Card */}
-          <Card className="mb-8 border-2 border-primary/20 shadow-lg">
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span role="img" aria-label="Subscription">⭐</span>
-                  <span>Subscription Status</span>
-                </div>
-                <SubscriptionStatus />
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid md:grid-cols-3 gap-4">
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Current Plan</span>
-                  <span className="font-semibold">{SUBSCRIPTION_PLANS[currentPlan || 'basic'].name}</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Staff Accounts</span>
-                  <span className="font-semibold">{maxStaffAccounts} allowed</span>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <span className="text-sm text-gray-500">Branch Locations</span>
-                  <span className="font-semibold">{maxBranches} allowed</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <div className="mb-8">
+            <SubscriptionStatusCard />
+          </div>
 
           {/* Quick Access Cards for Forecasting and Barcode Scanner */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -233,21 +209,15 @@ export default function PharmacyDashboard() {
           <QuickReorder />
 
           {/* Analytics Dashboard */}
-          {/* Subscription Status */}
-          <div className="grid gap-6 mb-8 grid-cols-1 lg:grid-cols-4">
-            <div className="lg:col-span-1">
-              <SubscriptionStatus />
-            </div>
-            <div className="lg:col-span-3">
-              <Card className="shadow-lg border-0">
-                <CardHeader>
-                  <CardTitle className="text-2xl">Business Analytics</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AnalyticsDashboard />
-                </CardContent>
-          </Card>
-            </div>
+          <div className="mb-8">
+            <Card className="shadow-lg border-0">
+              <CardHeader>
+                <CardTitle className="text-2xl">Business Analytics</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <AnalyticsDashboard />
+              </CardContent>
+            </Card>
           </div>
 
           <PharmacyQuickActions cartItems={stats.cartItems} />

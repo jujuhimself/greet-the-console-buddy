@@ -124,6 +124,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  // Create UserSubscription from profile
+  const createUserSubscription = (profile: any): UserSubscription | null => {
+    if (!profile.subscription_status) return null;
+
+    return {
+      id: profile.id,
+      userId: profile.id,
+      plan: (profile.subscription_plan as 'basic' | 'medium' | 'premium') || 'premium',
+      status: (profile.subscription_status as 'trial' | 'active' | 'expired' | 'cancelled') || 'trial',
+      startDate: profile.subscription_start_date || new Date().toISOString(),
+      trialEndDate: profile.subscription_trial_end_date || new Date().toISOString(),
+      currentPeriodEnd: profile.subscription_period_end || new Date().toISOString(),
+      cancelAtPeriodEnd: profile.subscription_cancel_at_period_end || false,
+      lastPaymentDate: profile.subscription_last_payment_date,
+      nextBillingDate: profile.subscription_next_billing_date || new Date().toISOString(),
+    };
+  };
+
+  // Initialize complimentary subscription
+  const initializeComplimentarySubscription = async (userId: string) => {
+    try {
+      const now = new Date();
+      const trialEndDate = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
+      await supabase
+        .from('profiles')
+        .update({
+          subscription_status: 'trial',
+          subscription_plan: 'premium',
+          subscription_start_date: now.toISOString(),
+          subscription_trial_end_date: trialEndDate.toISOString(),
+          subscription_period_end: trialEndDate.toISOString(),
+          subscription_cancel_at_period_end: false,
+          subscription_next_billing_date: trialEndDate.toISOString(),
+        })
+        .eq('id', userId);
+    } catch (error) {
+      console.error('Error initializing complimentary subscription:', error);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -136,12 +177,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTimeout(async () => {
             const profile = await fetchUserProfile(session.user.id);
             if (profile) {
-              const userData = convertProfileToUser(profile, session.user);
-              setUser(userData);
+              // Initialize complimentary subscription if none exists
+              if (!profile.subscription_status) {
+                await initializeComplimentarySubscription(session.user.id);
+                // Fetch updated profile
+                const updatedProfile = await fetchUserProfile(session.user.id);
+                if (updatedProfile) {
+                  const userData = convertProfileToUser(updatedProfile, session.user);
+                  setUser(userData);
+                  setUserSubscription(createUserSubscription(updatedProfile));
+                }
+              } else {
+                const userData = convertProfileToUser(profile, session.user);
+                setUser(userData);
+                setUserSubscription(createUserSubscription(profile));
+              }
             }
           }, 0);
         } else {
           setUser(null);
+          setUserSubscription(null);
         }
         
         setIsLoading(false);
@@ -152,10 +207,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       if (session?.user) {
-        fetchUserProfile(session.user.id).then(profile => {
+        fetchUserProfile(session.user.id).then(async profile => {
           if (profile) {
-            const userData = convertProfileToUser(profile, session.user);
-            setUser(userData);
+            // Initialize complimentary subscription if none exists
+            if (!profile.subscription_status) {
+              await initializeComplimentarySubscription(session.user.id);
+              const updatedProfile = await fetchUserProfile(session.user.id);
+              if (updatedProfile) {
+                const userData = convertProfileToUser(updatedProfile, session.user);
+                setUser(userData);
+                setUserSubscription(createUserSubscription(updatedProfile));
+              }
+            } else {
+              const userData = convertProfileToUser(profile, session.user);
+              setUser(userData);
+              setUserSubscription(createUserSubscription(profile));
+            }
           }
           setIsLoading(false);
         });

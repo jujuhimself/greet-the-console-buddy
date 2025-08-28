@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSubscription } from '@/hooks/use-subscription';
 import { SUBSCRIPTION_PLANS, type SubscriptionPlan } from '@/types/subscription';
-import { createSubscriptionCheckout } from '@/api/subscription';
+import { createSubscriptionCheckout, manageSubscription } from '@/api/subscription';
 
 function SubscriptionPage() {
   const { user } = useAuth();
@@ -33,12 +33,11 @@ function SubscriptionPage() {
 
     setLoadingPlan(plan);
     try {
-      // Create a Stripe Checkout session for the subscription
       const checkoutSession = await createSubscriptionCheckout(plan);
       
-      // If we have a session URL, redirect to Stripe Checkout
       if (checkoutSession?.url) {
-        window.location.href = checkoutSession.url;
+        // Open Stripe checkout in a new tab
+        window.open(checkoutSession.url, '_blank');
       } else {
         throw new Error('Failed to create checkout session');
       }
@@ -51,6 +50,25 @@ function SubscriptionPage() {
       });
     } finally {
       setLoadingPlan(null);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const portalSession = await manageSubscription();
+      
+      if (portalSession?.url) {
+        window.open(portalSession.url, '_blank');
+      } else {
+        throw new Error('Failed to create portal session');
+      }
+    } catch (error) {
+      console.error('Manage subscription error:', error);
+      toast({
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to open billing portal',
+        variant: 'destructive',
+      });
     }
   };
 
@@ -108,18 +126,27 @@ function SubscriptionPage() {
                   </li>
                 ))}
               </ul>
-              <Button
-                className="w-full mt-6"
-                disabled={loadingPlan !== null || isCurrentPlan(plan.id)}
-                onClick={() => handleSubscribe(plan.id)}
-                variant={isCurrentPlan(plan.id) ? "outline" : "default"}
-              >
-                {isCurrentPlan(plan.id) 
-                  ? 'Current Plan' 
-                  : loadingPlan === plan.id
-                    ? 'Processing...' 
-                    : 'Subscribe'}
-              </Button>
+              <div className="space-y-2 mt-6">
+                <Button
+                  className="w-full"
+                  disabled={loadingPlan !== null}
+                  onClick={() => isCurrentPlan(plan.id) && isActive ? handleManageSubscription() : handleSubscribe(plan.id)}
+                  variant={isCurrentPlan(plan.id) ? "outline" : "default"}
+                >
+                  {isCurrentPlan(plan.id) 
+                    ? isActive 
+                      ? 'Manage Plan' 
+                      : 'Renew Plan'
+                    : loadingPlan === plan.id
+                      ? 'Processing...' 
+                      : 'Subscribe'}
+                </Button>
+                {isTrial && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    30-day free trial included
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
