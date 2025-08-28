@@ -12,15 +12,16 @@ interface QualityControlFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: any) => void;
+  initialData?: any;
 }
 
-const QualityControlForm = ({ isOpen, onClose, onSubmit }: QualityControlFormProps) => {
+const QualityControlForm = ({ isOpen, onClose, onSubmit, initialData }: QualityControlFormProps) => {
   const { toast } = useToast();
   const [formData, setFormData] = useState({
-    equipment_name: '',
-    check_type: '',
-    status: '',
-    notes: ''
+    equipment_name: initialData?.equipment_name || '',
+    check_type: initialData?.check_type || '',
+    status: initialData?.status || '',
+    notes: initialData?.notes || ''
   });
 
   const handleSubmit = (e: React.FormEvent) => {

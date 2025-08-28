@@ -64,7 +64,7 @@ class DataService {
         query = query.eq('user_id', userId);
       } else if (role === 'admin') {
         // Admins see all products
-        query = query.select('*');
+        // Admins see all products - no additional filter needed
       }
       
       const { data, error } = await query;

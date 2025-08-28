@@ -68,7 +68,7 @@ const InventoryManagement = () => {
           query = query.eq('user_id', user.id);
         } else if (user.role === 'admin') {
           // Admins see all products
-          query = query.select('*');
+          // Admins see all products - no additional filter needed
         } else {
           // Other roles don't have inventory management
           setInventory([]);
