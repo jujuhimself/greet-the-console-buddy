@@ -85,8 +85,6 @@ export function InvoiceGenerator() {
   useEffect(() => {
     fetchProducts();
   }, []);
-    }
-  };
 
   // Add new item to invoice
   const addItem = () => {
