@@ -140,11 +140,12 @@ export default function PharmacyDashboard() {
                 </h1>
                 <p className="text-gray-600 text-lg">Manage your orders and browse our medical product catalog</p>
               </div>
-              {/* Subscription Status Card - Top Right */}
-              <div className="w-80">
-                <SubscriptionStatusCard />
-              </div>
             </div>
+          </div>
+
+          {/* Subscription Status Card */}
+          <div className="mb-8">
+            <SubscriptionStatusCard />
           </div>
 
           {/* Quick Access Cards for Forecasting and Barcode Scanner */}
