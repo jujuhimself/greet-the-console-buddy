@@ -48,6 +48,7 @@ type AnalyticsData = {
 import WholesaleStatsCards from "@/components/wholesale/WholesaleStatsCards";
 import WholesaleQuickActions from "@/components/wholesale/WholesaleQuickActions";
 import WholesaleRecentOrders from "@/components/wholesale/WholesaleRecentOrders";
+import { InvoiceGenerator } from "@/components/invoice/InvoiceGenerator";
 
 const WholesaleDashboard = () => {
   const { user, logout } = useAuth();
@@ -343,11 +344,6 @@ const WholesaleDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="container mx-auto px-4 py-8">
-        {/* Subscription Status Card */}
-        <div className="mb-6">
-          <SubscriptionStatusCard />
-        </div>
-        
         <div className="mb-8">
           <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Wholesale Dashboard
@@ -361,6 +357,11 @@ const WholesaleDashboard = () => {
             Manage your wholesale operations and track performance
             {selectedBranch && ` for ${selectedBranch.name}`}
           </p>
+        </div>
+
+        {/* Subscription Status Card */}
+        <div className="mb-8">
+          <SubscriptionStatusCard />
         </div>
 
         {/* Quick Access Cards */}
@@ -425,6 +426,11 @@ const WholesaleDashboard = () => {
         <WholesaleStatsCards stats={stats} />
         <WholesaleQuickActions />
         <WholesaleRecentOrders orders={orders} />
+
+        {/* Invoice Generator Section */}
+        <div className="mb-8">
+          <InvoiceGenerator />
+        </div>
 
         {/* Analytics Section */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

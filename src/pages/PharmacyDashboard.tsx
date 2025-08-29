@@ -132,11 +132,6 @@ export default function PharmacyDashboard() {
         <div className="container mx-auto px-4 py-8">
           <BreadcrumbNavigation />
           
-          {/* Subscription Status Card */}
-          <div className="mb-6">
-            <SubscriptionStatusCard />
-          </div>
-          
           <div className="mb-8">
             <div className="flex justify-between items-center mb-4">
               <div>
@@ -146,6 +141,11 @@ export default function PharmacyDashboard() {
                 <p className="text-gray-600 text-lg">Manage your orders and browse our medical product catalog</p>
               </div>
             </div>
+          </div>
+
+          {/* Subscription Status Card */}
+          <div className="mb-8">
+            <SubscriptionStatusCard />
           </div>
 
           {/* Quick Access Cards for Forecasting and Barcode Scanner */}

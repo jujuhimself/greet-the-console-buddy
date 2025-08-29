@@ -37,7 +37,7 @@ interface Product {
   id: string;
   name: string;
   sell_price: number;
-  stock_quantity: number;
+  stock: number;
 }
 
 export function InvoiceGenerator() {
@@ -63,9 +63,9 @@ export function InvoiceGenerator() {
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sell_price, stock_quantity, unit')
+        .select('id, name, sell_price, stock, unit')
         .eq('user_id', user?.id)
-        .gt('stock_quantity', 0)
+        .gt('stock', 0)
         .order('name');
 
       if (error) throw error;
@@ -167,27 +167,26 @@ export function InvoiceGenerator() {
         const product = products.find(p => p.id === item.productId);
         if (!product) continue;
         
-        if (product.stock_quantity < item.quantity) {
+        if (product.stock < item.quantity) {
           throw new Error(`Insufficient stock for ${product.name}`);
         }
       }
 
-      // Start a Supabase transaction
+      // Save invoice to database
       const { data: invoice, error: invoiceError } = await supabase
         .from('invoices')
         .insert({
-          pharmacy_id: user?.id,
+          user_id: user?.id,
+          branch_id: user?.id, // For now, use user_id as branch_id
           customer_name: invoiceData.customerName,
           customer_email: invoiceData.customerEmail,
           customer_phone: invoiceData.customerPhone,
-          customer_address: invoiceData.customerAddress,
-          items: invoiceData.items,
           subtotal: invoiceData.subtotal,
-          tax: invoiceData.tax,
-          total: invoiceData.total,
+          vat_amount: invoiceData.tax,
+          total_amount: invoiceData.total,
           notes: invoiceData.notes,
-          status: 'completed',
-          invoice_date: new Date().toISOString(),
+          status: 'paid',
+          invoice_date: format(new Date(), 'yyyy-MM-dd'),
           invoice_number: `INV-${format(new Date(), 'yyyyMMdd')}-${Math.floor(Math.random() * 1000)}`
         })
         .select()
@@ -195,14 +194,43 @@ export function InvoiceGenerator() {
 
       if (invoiceError) throw invoiceError;
 
-      // Deduct stock for each item
+      // Save invoice items and deduct stock
       for (const item of invoiceData.items) {
         if (!item.productId) continue;
 
-        const { error: stockError } = await supabase.rpc('deduct_stock', {
-          p_product_id: item.productId,
-          p_quantity: item.quantity
-        });
+        // Add invoice item
+        const { error: itemError } = await supabase
+          .from('invoice_items')
+          .insert({
+            invoice_id: invoice.id,
+            product_id: item.productId,
+            product_name: item.description,
+            quantity: item.quantity,
+            unit_price: item.unitPrice,
+            total_price: item.total
+          });
+
+        if (itemError) throw itemError;
+
+        // Get current stock and deduct
+        const { data: currentProduct, error: fetchError } = await supabase
+          .from('products')
+          .select('stock')
+          .eq('id', item.productId)
+          .single();
+
+        if (fetchError) throw fetchError;
+
+        const newStock = currentProduct.stock - item.quantity;
+        
+        // Update stock
+        const { error: stockError } = await supabase
+          .from('products')
+          .update({ 
+            stock: newStock,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', item.productId);
 
         if (stockError) throw stockError;
       }
@@ -332,7 +360,7 @@ export function InvoiceGenerator() {
                         <SelectContent>
                           {products.map((product) => (
                             <SelectItem key={product.id} value={product.id}>
-                              {product.name} (Stock: {product.stock_quantity})
+                              {product.name} (Stock: {product.stock})
                             </SelectItem>
                           ))}
                         </SelectContent>
