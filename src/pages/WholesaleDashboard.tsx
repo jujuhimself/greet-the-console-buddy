@@ -345,23 +345,26 @@ const WholesaleDashboard = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-green-50">
       <div className="container mx-auto px-4 py-8">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">
-            Wholesale Dashboard
-            {selectedBranch && (
-              <span className="text-2xl font-normal text-gray-600 ml-4">
-                - {selectedBranch.name}
-              </span>
-            )}
-          </h1>
-          <p className="text-gray-600 text-lg">
-            Manage your wholesale operations and track performance
-            {selectedBranch && ` for ${selectedBranch.name}`}
-          </p>
-        </div>
-
-        {/* Subscription Status Card */}
-        <div className="mb-8">
-          <SubscriptionStatusCard />
+          <div className="flex justify-between items-center mb-4">
+            <div>
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">
+                Wholesale Dashboard
+                {selectedBranch && (
+                  <span className="text-2xl font-normal text-gray-600 ml-4">
+                    - {selectedBranch.name}
+                  </span>
+                )}
+              </h1>
+              <p className="text-gray-600 text-lg">
+                Manage your wholesale operations and track performance
+                {selectedBranch && ` for ${selectedBranch.name}`}
+              </p>
+            </div>
+            {/* Subscription Status Card - Top Right */}
+            <div className="w-80">
+              <SubscriptionStatusCard />
+            </div>
+          </div>
         </div>
 
         {/* Quick Access Cards */}

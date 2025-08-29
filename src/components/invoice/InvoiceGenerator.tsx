@@ -83,8 +83,10 @@ export function InvoiceGenerator() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (user?.id) {
+      fetchProducts();
+    }
+  }, [user?.id]);
 
   // Add new item to invoice
   const addItem = () => {
@@ -140,16 +142,20 @@ export function InvoiceGenerator() {
 
   // Calculate subtotal, tax, and total
   const calculateTotals = () => {
-    const subtotal = invoiceData.items.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.18; // 18% VAT
-    const total = subtotal + tax;
-
-    setInvoiceData(prev => ({
-      ...prev,
-      subtotal,
-      tax,
-      total
-    }));
+    setTimeout(() => {
+      setInvoiceData(prev => {
+        const subtotal = prev.items.reduce((sum, item) => sum + item.total, 0);
+        const tax = subtotal * 0.18; // 18% VAT
+        const total = subtotal + tax;
+        
+        return {
+          ...prev,
+          subtotal,
+          tax,
+          total
+        };
+      });
+    }, 0);
   };
 
   // Save invoice and deduct stock
