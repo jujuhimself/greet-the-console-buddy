@@ -56,13 +56,13 @@ const ResponsiveNavigation = () => {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-3">
+          <Link to="/" className="flex items-center space-x-3 flex-shrink-0">
             <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
             <span className="text-xl font-bold text-gray-900">BEPAWA</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden lg:flex items-center space-x-6">
+          <div className="hidden lg:flex items-center space-x-8 ml-8">
             {uniqueMenuGroups.map((group) => (
               <div key={group.name} className="relative group">
                 <Button variant="ghost" className="font-medium">

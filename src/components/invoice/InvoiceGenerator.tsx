@@ -63,7 +63,7 @@ export function InvoiceGenerator() {
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sell_price, stock, unit')
+        .select('id, name, sell_price, stock')
         .eq('user_id', user?.id)
         .gt('stock', 0)
         .order('name');
