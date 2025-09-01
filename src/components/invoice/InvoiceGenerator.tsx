@@ -83,8 +83,10 @@ export function InvoiceGenerator() {
   };
 
   useEffect(() => {
-    fetchProducts();
-  }, []);
+    if (user?.id) {
+      fetchProducts();
+    }
+  }, [user?.id]);
 
   // Add new item to invoice
   const addItem = () => {
@@ -140,16 +142,20 @@ export function InvoiceGenerator() {
 
   // Calculate subtotal, tax, and total
   const calculateTotals = () => {
-    const subtotal = invoiceData.items.reduce((sum, item) => sum + item.total, 0);
-    const tax = subtotal * 0.18; // 18% VAT
-    const total = subtotal + tax;
+    setTimeout(() => {
+      setInvoiceData(prev => {
+        const subtotal = prev.items.reduce((sum, item) => sum + item.total, 0);
+        const tax = subtotal * 0.18; // 18% VAT
+        const total = subtotal + tax;
 
-    setInvoiceData(prev => ({
-      ...prev,
-      subtotal,
-      tax,
-      total
-    }));
+        return {
+          ...prev,
+          subtotal,
+          tax,
+          total
+        };
+      });
+    }, 0);
   };
 
   // Save invoice and deduct stock
@@ -341,14 +347,35 @@ export function InvoiceGenerator() {
               </Button>
             </div>
             
+            {/* Show products status */}
+            {loading && (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground">Loading products...</p>
+              </div>
+            )}
+            
+            {!loading && products.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+                <p className="text-muted-foreground">No products available in inventory.</p>
+                <p className="text-sm text-muted-foreground mt-2">Add products to your inventory first.</p>
+              </div>
+            )}
+            
+            {!loading && products.length > 0 && invoiceData.items.length === 0 && (
+              <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">
+                <p className="text-muted-foreground">Click "Add Item" to start building your invoice.</p>
+                <p className="text-sm text-muted-foreground mt-2">{products.length} products available in inventory.</p>
+              </div>
+            )}
+            
             <div className="space-y-4">
               {invoiceData.items.map((item) => (
-                <div key={item.id} className="flex gap-4 items-start">
+                <div key={item.id} className="flex gap-4 items-start bg-white border rounded-lg p-4">
                   <div className="flex-grow grid grid-cols-1 md:grid-cols-4 gap-4">
                     <div>
                       <Label>Product</Label>
                       <Select
-                        value={item.productId}
+                        value={item.productId || ""}
                         onValueChange={(value) => {
                           const product = products.find(p => p.id === value);
                           if (product) {
@@ -364,7 +391,7 @@ export function InvoiceGenerator() {
                         <SelectContent>
                           {products.map((product) => (
                             <SelectItem key={product.id} value={product.id}>
-                              {product.name} (Stock: {product.stock})
+                              {product.name} (Stock: {product.stock}) - TZS {product.sell_price.toLocaleString()}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -377,23 +404,26 @@ export function InvoiceGenerator() {
                         min="1"
                         value={item.quantity}
                         onChange={(e) => updateItem(item.id, 'quantity', Number(e.target.value))}
+                        max={products.find(p => p.id === item.productId)?.stock || 999}
                       />
                     </div>
                     <div>
-                      <Label>Unit Price</Label>
+                      <Label>Unit Price (TZS)</Label>
                       <Input
                         type="number"
                         value={item.unitPrice}
                         onChange={(e) => updateItem(item.id, 'unitPrice', Number(e.target.value))}
-                        disabled
+                        readOnly
+                        className="bg-gray-50"
                       />
                     </div>
                     <div>
-                      <Label>Total</Label>
+                      <Label>Total (TZS)</Label>
                       <Input
                         type="number"
                         value={item.total}
-                        disabled
+                        readOnly
+                        className="bg-gray-50 font-medium"
                       />
                     </div>
                   </div>
@@ -401,6 +431,7 @@ export function InvoiceGenerator() {
                     variant="destructive"
                     size="icon"
                     onClick={() => removeItem(item.id)}
+                    className="mt-6"
                   >
                     <Trash2 className="w-4 h-4" />
                   </Button>
@@ -410,18 +441,21 @@ export function InvoiceGenerator() {
           </div>
 
           {/* Totals */}
-          <div className="space-y-2">
-            <div className="flex justify-between">
+          <div className="bg-gray-50 p-4 rounded-lg space-y-3">
+            <h4 className="font-semibold text-gray-900">Invoice Summary</h4>
+            <div className="flex justify-between text-sm">
               <span>Subtotal:</span>
               <span>TZS {invoiceData.subtotal.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between">
+            <div className="flex justify-between text-sm">
               <span>VAT (18%):</span>
               <span>TZS {invoiceData.tax.toLocaleString()}</span>
             </div>
-            <div className="flex justify-between font-bold">
-              <span>Total:</span>
-              <span>TZS {invoiceData.total.toLocaleString()}</span>
+            <div className="border-t pt-2">
+              <div className="flex justify-between font-bold text-lg">
+                <span>Total Amount:</span>
+                <span className="text-primary">TZS {invoiceData.total.toLocaleString()}</span>
+              </div>
             </div>
           </div>
 
