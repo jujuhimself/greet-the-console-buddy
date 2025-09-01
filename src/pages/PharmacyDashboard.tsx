@@ -143,10 +143,6 @@ export default function PharmacyDashboard() {
             </div>
           </div>
 
-          {/* Subscription Status Card */}
-          <div className="mb-8">
-            <SubscriptionStatusCard />
-          </div>
 
           {/* Quick Access Cards for Forecasting and Barcode Scanner */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

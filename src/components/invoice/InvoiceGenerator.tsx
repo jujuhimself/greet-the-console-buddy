@@ -280,11 +280,15 @@ export function InvoiceGenerator() {
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Generate Invoice</CardTitle>
+    <Card className="shadow-lg border-0 bg-gradient-to-br from-white to-blue-50/30">
+      <CardHeader className="bg-gradient-to-r from-primary/5 to-primary/10 border-b">
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <span role="img" aria-label="Invoice">📄</span>
+          Generate Invoice
+        </CardTitle>
+        <p className="text-sm text-muted-foreground">Create professional invoices and manage inventory automatically</p>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         <div className="space-y-6">
           {/* Customer Details */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

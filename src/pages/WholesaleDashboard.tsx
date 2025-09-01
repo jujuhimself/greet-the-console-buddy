@@ -359,10 +359,6 @@ const WholesaleDashboard = () => {
           </p>
         </div>
 
-        {/* Subscription Status Card */}
-        <div className="mb-8">
-          <SubscriptionStatusCard />
-        </div>
 
         {/* Quick Access Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
