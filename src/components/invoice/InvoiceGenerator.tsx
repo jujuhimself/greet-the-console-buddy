@@ -277,12 +277,52 @@ export function InvoiceGenerator() {
 
   // Generate PDF invoice
   const generatePDF = async () => {
-    // Implementation for PDF generation will be added
-    toast({
-      title: 'Coming Soon',
-      description: 'PDF generation feature is coming soon.',
-      variant: 'default',
-    });
+    try {
+      if (invoiceData.items.length === 0) {
+        toast({
+          title: 'Error',
+          description: 'Please add items to generate PDF.',
+          variant: 'destructive',
+        });
+        return;
+      }
+
+      const { generateInvoicePDF } = await import('@/utils/pdfGenerator');
+      
+      // Create invoice data for PDF
+      const pdfData = {
+        id: 'preview',
+        invoice_number: `PREVIEW-${format(new Date(), 'yyyyMMdd')}-${Math.floor(Math.random() * 1000)}`,
+        customer_name: invoiceData.customerName || 'Customer Name',
+        customer_email: invoiceData.customerEmail,
+        customer_phone: invoiceData.customerPhone,
+        subtotal: invoiceData.subtotal,
+        vat_amount: invoiceData.tax,
+        total_amount: invoiceData.total,
+        invoice_date: format(new Date(), 'yyyy-MM-dd'),
+        notes: invoiceData.notes,
+        invoice_items: invoiceData.items.map(item => ({
+          product_name: item.description,
+          quantity: item.quantity,
+          unit_price: item.unitPrice,
+          total_price: item.total
+        }))
+      };
+
+      await generateInvoicePDF(pdfData);
+      
+      toast({
+        title: 'Success',
+        description: 'Invoice PDF generated successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error generating PDF:', error);
+      toast({
+        title: 'Error generating PDF',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   return (
