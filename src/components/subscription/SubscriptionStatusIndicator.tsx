@@ -22,10 +22,16 @@ export const SubscriptionStatusIndicator = () => {
 
   const plan = SUBSCRIPTION_PLANS[currentPlan];
   
-  const daysLeft = userSubscription.trialEndDate
-    ? Math.max(0, Math.ceil((new Date(userSubscription.trialEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
-    : userSubscription.subscriptionEnd
-    ? Math.max(0, Math.ceil((new Date(userSubscription.subscriptionEnd).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+  // Compute remaining days based on status
+  const now = new Date().getTime();
+  const daysLeft = isTrial && userSubscription.trialEndDate
+    ? Math.max(0, Math.ceil((new Date(userSubscription.trialEndDate).getTime() - now) / (1000 * 60 * 60 * 24)))
+    : !isTrial && (userSubscription.subscriptionEnd || userSubscription.currentPeriodEnd)
+    ? Math.max(0, Math.ceil(((userSubscription.subscriptionEnd ? new Date(userSubscription.subscriptionEnd) : new Date(userSubscription.currentPeriodEnd)).getTime() - now) / (1000 * 60 * 60 * 24)))
+    : 0;
+
+  const daysToRenewal = !isTrial && userSubscription.nextBillingDate
+    ? Math.max(0, Math.ceil((new Date(userSubscription.nextBillingDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
 
   const getStatusIcon = () => {
@@ -65,7 +71,11 @@ export const SubscriptionStatusIndicator = () => {
           <div className="flex items-center gap-1">
             {getStatusIcon()}
             <span className="text-xs font-medium">
-              {isTrial ? `${daysLeft}d trial` : isActive && daysLeft > 0 ? `${plan.name} ${daysLeft}d` : plan.name}
+              {isTrial
+                ? `${daysLeft}d trial`
+                : isActive
+                ? `${plan.name} ${daysLeft > 0 ? daysLeft : daysToRenewal}d`
+                : plan.name}
             </span>
             {getPlanIcon()}
           </div>
@@ -92,9 +102,15 @@ export const SubscriptionStatusIndicator = () => {
             </Badge>
           </div>
           
-          {(isTrial || isActive) && daysLeft > 0 && (
+          {(isTrial || isActive) && (
             <div className="text-xs text-muted-foreground">
-              {daysLeft} days remaining {isTrial ? 'in trial' : 'in subscription'}
+              {isTrial
+                ? `${daysLeft} days remaining in trial`
+                : daysLeft > 0
+                ? `${daysLeft} days remaining in subscription`
+                : daysToRenewal === 0
+                ? 'Renews today'
+                : `Renews in ${daysToRenewal} days`}
             </div>
           )}
           

@@ -262,7 +262,7 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
   const formatted = matches.map(g => {
     const first = g.firstLine.map(fl => `• ${fl.medication} – ${fl.dosage} for ${fl.duration}${fl.notes ? ` (${fl.notes})` : ''}`).join('\n');
     const second = g.secondLine && g.secondLine.length ? `\nSecond-line:\n${g.secondLine.map(sl => `• ${sl.medication} – ${sl.dosage} for ${sl.duration}${sl.notes ? ` (${sl.notes})` : ''}`).join('\n')}` : '';
-    return `### ${g.condition}\n\nFirst-line:\n${first}${second}\n\n**Precautions:** ${g.precautions.join(', ')}\n**Refer if:** ${g.whenToRefer.join(', ')}\n**Counseling:** ${g.patientCounseling.join(', ')}`;
+    return `### ${g.condition}\n\n**Common symptoms:** ${g.symptoms.join(', ')}\n\nFirst-line:\n${first}${second}\n\n**Precautions:** ${g.precautions.join(', ')}\n**Refer if:** ${g.whenToRefer.join(', ')}\n**Counseling:** ${g.patientCounseling.join(', ')}`;
   }).join('\n\n---\n\n');
 
   return {

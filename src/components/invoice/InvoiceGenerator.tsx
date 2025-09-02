@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useBranch } from '@/contexts/BranchContext';
 import { supabase } from '@/integrations/supabase/client';
 
 interface InvoiceItem {
@@ -42,6 +43,7 @@ interface Product {
 
 export function InvoiceGenerator() {
   const { user } = useAuth();
+  const { selectedBranch } = useBranch();
   const { toast } = useToast();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(false);
@@ -168,6 +170,11 @@ export function InvoiceGenerator() {
         throw new Error('Please fill in customer details and add items');
       }
 
+      // Require a selected branch for branch_id FK
+      if (!selectedBranch?.id) {
+        throw new Error('No branch selected. Please select a branch to create an invoice.');
+      }
+
       // Check stock availability
       for (const item of invoiceData.items) {
         const product = products.find(p => p.id === item.productId);
@@ -181,21 +188,35 @@ export function InvoiceGenerator() {
       // Generate invoice number
       const invoiceNumber = `INV-${Date.now()}`;
       
-      // Save invoice to database
+      // Save invoice to database (match migration schema)
+      const itemsPayload = invoiceData.items.map(item => ({
+        product_id: item.productId,
+        product_name: item.description,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.total,
+      }));
+
       const { data: savedInvoice, error: saveInvoiceError } = await supabase
         .from('invoices')
         .insert({
           user_id: user?.id,
-          branch_id: user?.id, // Use user_id as branch_id for now
+          branch_id: selectedBranch.id,
           invoice_number: invoiceNumber,
           customer_name: invoiceData.customerName,
-          customer_email: invoiceData.customerEmail,
-          customer_phone: invoiceData.customerPhone,
+          customer_email: invoiceData.customerEmail || null,
+          customer_phone: invoiceData.customerPhone || null,
           invoice_date: new Date().toISOString().split('T')[0],
+          due_date: null,
           subtotal: invoiceData.subtotal,
           vat_amount: invoiceData.tax,
+          discount_amount: 0,
           total_amount: invoiceData.total,
+          paid_amount: 0,
           status: 'pending',
+          is_recurring: false,
+          recurring_frequency: null,
+          next_invoice_date: null,
           notes: invoiceData.notes,
         })
         .select()
@@ -203,7 +224,7 @@ export function InvoiceGenerator() {
 
       if (saveInvoiceError) throw saveInvoiceError;
 
-      // Save invoice items
+      // Save invoice items to invoice_items table (live DB appears to use this table)
       const invoiceItems = invoiceData.items.map(item => ({
         invoice_id: savedInvoice.id,
         product_id: item.productId,
@@ -268,11 +289,17 @@ export function InvoiceGenerator() {
       // Refresh products list
       fetchProducts();
 
-    } catch (error) {
+    } catch (error: any) {
+      // Improve diagnostics for Supabase/PostgREST errors
+      const msg =
+        error?.message ||
+        error?.error_description ||
+        error?.hint ||
+        (typeof error === 'object' ? JSON.stringify(error) : String(error));
       console.error('Error saving invoice:', error);
       toast({
-        title: 'Error',
-        description: error instanceof Error ? error.message : 'Failed to save invoice',
+        title: 'Error saving invoice',
+        description: msg || 'Failed to save invoice',
         variant: 'destructive',
       });
     } finally {
