@@ -44,8 +44,14 @@ export const SubscriptionStatusIndicator = () => {
 
   const getStatusColor = () => {
     if (isTrial) return 'border-amber-200 bg-amber-50 text-amber-700';
-    if (isActive) return 'border-emerald-200 bg-emerald-50 text-emerald-700';
-    return 'border-red-200 bg-red-50 text-red-700';
+    if (!isActive) return 'border-red-200 bg-red-50 text-red-700';
+    
+    // Different colors for different plans when active
+    switch (currentPlan) {
+      case 'premium': return 'border-purple-200 bg-purple-50 text-purple-700';
+      case 'medium': return 'border-blue-200 bg-blue-50 text-blue-700';
+      default: return 'border-emerald-200 bg-emerald-50 text-emerald-700';
+    }
   };
 
   return (
@@ -59,7 +65,7 @@ export const SubscriptionStatusIndicator = () => {
           <div className="flex items-center gap-1">
             {getStatusIcon()}
             <span className="text-xs font-medium">
-              {isTrial ? `${daysLeft}d trial` : isActive ? `${plan.name} ${daysLeft}d` : plan.name}
+              {isTrial ? `${daysLeft}d trial` : isActive && daysLeft > 0 ? `${plan.name} ${daysLeft}d` : plan.name}
             </span>
             {getPlanIcon()}
           </div>
@@ -74,7 +80,14 @@ export const SubscriptionStatusIndicator = () => {
                 {isTrial ? 'Free Trial' : 'Active'}
               </span>
             </div>
-            <Badge variant={isTrial ? 'secondary' : 'default'} className="text-xs">
+            <Badge 
+              variant={isTrial ? 'secondary' : 'default'} 
+              className={`text-xs ${
+                currentPlan === 'premium' ? 'bg-purple-100 text-purple-800 border-purple-200' :
+                currentPlan === 'medium' ? 'bg-blue-100 text-blue-800 border-blue-200' :
+                'bg-emerald-100 text-emerald-800 border-emerald-200'
+              }`}
+            >
               {plan.name}
             </Badge>
           </div>
