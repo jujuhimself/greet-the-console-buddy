@@ -28,6 +28,7 @@ export interface UserSubscription {
   status: 'trial' | 'active' | 'expired' | 'cancelled';
   startDate: string; // ISO date string
   trialEndDate: string; // ISO date string
+  subscriptionEnd?: string; // ISO date string
   currentPeriodEnd: string; // ISO date string
   cancelAtPeriodEnd: boolean;
   lastPaymentDate?: string; // ISO date string

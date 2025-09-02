@@ -35,16 +35,16 @@ export const generateInvoicePDF = async (invoice: InvoiceData) => {
   doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
   doc.rect(0, 0, 210, 40, 'F');
   
-  // Company info (you can customize this)
+  // Company info
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(24);
   doc.setFont('helvetica', 'bold');
-  doc.text('Your Business Name', 20, 25);
+  doc.text('BEPAWAA', 20, 25);
   
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
-  doc.text('Address Line 1', 20, 32);
-  doc.text('Address Line 2, Phone: +255 XXX XXX XXX', 20, 36);
+  doc.text('Kasarani Bukoba', 20, 32);
+  doc.text('Phone: +255 679 487 088', 20, 36);
   
   // Invoice title
   doc.setTextColor(textColor[0], textColor[1], textColor[2]);
@@ -117,19 +117,19 @@ export const generateInvoicePDF = async (invoice: InvoiceData) => {
   
   // Subtotal
   doc.text('Subtotal:', totalsX, currentY);
-  doc.text(`TZS ${invoice.subtotal.toLocaleString()}`, 170, currentY, { align: 'right' });
+  doc.text(`TZS ${invoice.subtotal.toLocaleString()}`, 185, currentY, { align: 'right' });
   currentY += 7;
   
   // VAT
   doc.text('VAT (18%):', totalsX, currentY);
-  doc.text(`TZS ${invoice.vat_amount.toLocaleString()}`, 170, currentY, { align: 'right' });
+  doc.text(`TZS ${invoice.vat_amount.toLocaleString()}`, 185, currentY, { align: 'right' });
   currentY += 7;
   
   // Total
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(12);
   doc.text('Total Amount:', totalsX, currentY);
-  doc.text(`TZS ${invoice.total_amount.toLocaleString()}`, 170, currentY, { align: 'right' });
+  doc.text(`TZS ${invoice.total_amount.toLocaleString()}`, 185, currentY, { align: 'right' });
   
   // Notes section
   if (invoice.notes) {

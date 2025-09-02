@@ -24,6 +24,8 @@ export const SubscriptionStatusIndicator = () => {
   
   const daysLeft = userSubscription.trialEndDate
     ? Math.max(0, Math.ceil((new Date(userSubscription.trialEndDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
+    : userSubscription.subscriptionEnd
+    ? Math.max(0, Math.ceil((new Date(userSubscription.subscriptionEnd).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)))
     : 0;
 
   const getStatusIcon = () => {
@@ -57,7 +59,7 @@ export const SubscriptionStatusIndicator = () => {
           <div className="flex items-center gap-1">
             {getStatusIcon()}
             <span className="text-xs font-medium">
-              {isTrial ? `${daysLeft}d trial` : plan.name}
+              {isTrial ? `${daysLeft}d trial` : isActive ? `${plan.name} ${daysLeft}d` : plan.name}
             </span>
             {getPlanIcon()}
           </div>
@@ -77,9 +79,9 @@ export const SubscriptionStatusIndicator = () => {
             </Badge>
           </div>
           
-          {isTrial && (
+          {(isTrial || isActive) && daysLeft > 0 && (
             <div className="text-xs text-muted-foreground">
-              {daysLeft} days remaining in trial
+              {daysLeft} days remaining {isTrial ? 'in trial' : 'in subscription'}
             </div>
           )}
           

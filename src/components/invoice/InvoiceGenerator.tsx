@@ -178,45 +178,50 @@ export function InvoiceGenerator() {
         }
       }
 
+      // Generate invoice number
+      const invoiceNumber = `INV-${Date.now()}`;
+      
       // Save invoice to database
-      const { data: invoice, error: invoiceError } = await supabase
+      const { data: savedInvoice, error: saveInvoiceError } = await supabase
         .from('invoices')
         .insert({
           user_id: user?.id,
-          branch_id: user?.id, // For now, use user_id as branch_id
+          branch_id: user?.id, // Use user_id as branch_id for now
+          invoice_number: invoiceNumber,
           customer_name: invoiceData.customerName,
           customer_email: invoiceData.customerEmail,
           customer_phone: invoiceData.customerPhone,
+          invoice_date: new Date().toISOString().split('T')[0],
           subtotal: invoiceData.subtotal,
           vat_amount: invoiceData.tax,
           total_amount: invoiceData.total,
+          status: 'pending',
           notes: invoiceData.notes,
-          status: 'paid',
-          invoice_date: format(new Date(), 'yyyy-MM-dd'),
-          invoice_number: `INV-${format(new Date(), 'yyyyMMdd')}-${Math.floor(Math.random() * 1000)}`
         })
         .select()
         .single();
 
-      if (invoiceError) throw invoiceError;
+      if (saveInvoiceError) throw saveInvoiceError;
 
-      // Save invoice items and deduct stock
+      // Save invoice items
+      const invoiceItems = invoiceData.items.map(item => ({
+        invoice_id: savedInvoice.id,
+        product_id: item.productId,
+        product_name: item.description,
+        quantity: item.quantity,
+        unit_price: item.unitPrice,
+        total_price: item.total,
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('invoice_items')
+        .insert(invoiceItems);
+
+      if (itemsError) throw itemsError;
+
+      // Deduct stock for each item
       for (const item of invoiceData.items) {
         if (!item.productId) continue;
-
-        // Add invoice item
-        const { error: itemError } = await supabase
-          .from('invoice_items')
-          .insert({
-            invoice_id: invoice.id,
-            product_id: item.productId,
-            product_name: item.description,
-            quantity: item.quantity,
-            unit_price: item.unitPrice,
-            total_price: item.total
-          });
-
-        if (itemError) throw itemError;
 
         // Get current stock and deduct
         const { data: currentProduct, error: fetchError } = await supabase
