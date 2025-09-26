@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { findGuidelines, treatmentGuidelines } from '@/data/treatmentGuidelines';
 import { supabase } from '@/integrations/supabase/client';
 import { translateSync } from '@/integrations/translate/index';
+import { route, type OrchestratorInput, type Lang } from '@/agents/care/orchestrator';
 
 interface Message {
   id: string;
@@ -824,6 +825,46 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
       suggestions: ['Blood glucose', 'Cholesterol levels', 'Complete blood count', 'Liver function'],
       category: 'lab'
     };
+  };
+
+  // Language detection helper
+  const detectLanguage = (text: string): Lang => {
+    const swahiliWords = ['nina', 'mimi', 'wewe', 'sisi', 'wao', 'hujambo', 'habari', 'asante', 'karibu', 'samahani', 'tafadhali'];
+    const lower = text.toLowerCase();
+    const hasSwahili = swahiliWords.some(word => lower.includes(word));
+    return hasSwahili ? 'sw' : 'en';
+  };
+
+  // Main bot response function using care orchestrator
+  const getBotResponse = async (message: string): Promise<Omit<Message, 'id' | 'timestamp'>> => {
+    try {
+      // Detect language and route through care orchestrator
+      const lang = detectLanguage(message);
+      const input: OrchestratorInput = { text: message, lang };
+      
+      const response = await route(input);
+      
+      return {
+        type: 'bot',
+        content: response.content,
+        suggestions: response.suggestions,
+        category: response.category === 'safety' ? 'medical' : 
+                 response.category === 'education' ? 'medical' : 'general'
+      };
+    } catch (error) {
+      console.error('Error getting bot response:', error);
+      
+      // Fallback response
+      const lang = detectLanguage(message);
+      return {
+        type: 'bot',
+        content: lang === 'sw' 
+          ? 'Samahani, kuna tatizo. Jaribu tena baadaye au zungumza na mshauri.'
+          : 'Sorry, there was an error. Please try again later or talk to a counselor.',
+        suggestions: ['Try again', 'Talk to a counselor'],
+        category: 'general'
+      };
+    }
   };
 
   const handleSendMessage = async (content?: string) => {
