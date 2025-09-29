@@ -96,8 +96,11 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error('Error:', error)
+    const message = (error && typeof error === 'object' && 'message' in error)
+      ? String((error as any).message)
+      : String(error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: message }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

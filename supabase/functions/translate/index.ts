@@ -4,7 +4,7 @@
 // - GOOGLE_TRANSLATE_API_KEY
 // Optional: enforce allowed targets/sources.
 
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+
 // Type shim for local editors (Deno runtime provides Deno global at deploy time)
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
@@ -15,7 +15,7 @@ interface ReqBody {
   source?: 'en' | 'sw';
 }
 
-Deno.serve(async (req) => {
+Deno.serve(async (req: Request) => {
   try {
     if (req.method !== 'POST') {
       return new Response('Method Not Allowed', { status: 405 });

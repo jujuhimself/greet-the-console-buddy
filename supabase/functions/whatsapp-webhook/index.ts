@@ -106,11 +106,11 @@ function detectLanguage(text: string): Lang {
   return hasSwahili ? 'sw' : 'en';
 }
 
-function packsFaq(topic: any, lang: Lang): string | null {
-  const pack = carePacks.faqs[topic];
+function packsFaq(topic: string, lang: Lang): string | null {
+  const pack = (carePacks.faqs as any)[topic];
   const list = (lang === 'sw' ? pack?.sw : pack?.en) || [];
   if (!list.length) return null;
-  const lines = list.slice(0, 3).map(f => `• ${f.q}\n  ${f.a}`).join('\n');
+  const lines = list.slice(0, 3).map((f: any) => `• ${f.q}\n  ${f.a}`).join('\n');
   const name = carePacks.topics.find(t => t.id === topic)?.name || 'Topic';
   return lang === 'sw'
     ? `Maswali ya kawaida kuhusu ${name}:\n${lines}`
@@ -124,7 +124,7 @@ async function route(input: OrchestratorInput): Promise<OrchestratorMessage> {
   if (isCrisis(text)) {
     const content = lang === 'sw'
       ? 'Nina wasiwasi na usalama wako. Ikiwa uko kwenye hatari ya dharura, piga 116 (Tanzania) au nenda hospitali iliyo karibu. Hujako peke yako — usalama wako ni wa kwanza.'
-      : 'I'm concerned about your safety. If you're in immediate danger, call 116 (Tanzania) or go to the nearest hospital. You are not alone — your safety comes first.';
+      : `I'm concerned about your safety. If you're in immediate danger, call 116 (Tanzania) or go to the nearest hospital. You are not alone — your safety comes first.`;;
     return { type: 'bot', content, suggestions: ['Grounding exercise','Talk to a counselor'], category: 'safety' };
   }
 
@@ -145,7 +145,7 @@ async function route(input: OrchestratorInput): Promise<OrchestratorMessage> {
   // 4) Fallback
   const content = lang === 'sw'
     ? 'Karibu BEPAWA Care! Niko hapa kukusaidia. Unaweza kuniambia unajisikiaje au kile unachohitaji msaada nacho?'
-    : 'Welcome to BEPAWA Care! I'm here to help you. You can tell me how you're feeling or what you need support with.';
+    : `Welcome to BEPAWA Care! I'm here to help you. You can tell me how you're feeling or what you need support with.`;;
   return { type: 'bot', content, suggestions: ['Coping tools','Talk to a counselor', 'Anxiety help', 'Depression support'], category: 'general' };
 }
 

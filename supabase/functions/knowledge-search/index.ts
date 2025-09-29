@@ -5,7 +5,7 @@
 // - SUPABASE_URL
 // - SUPABASE_SERVICE_ROLE_KEY
 
-import 'jsr:@supabase/functions-js/edge-runtime.d.ts'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 declare const Deno: any;
 
