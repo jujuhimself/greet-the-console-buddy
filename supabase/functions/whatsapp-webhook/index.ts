@@ -281,7 +281,8 @@ async function handler(req: Request): Promise<Response> {
                           ? 'Samahani, kuna tatizo. Jaribu tena baadaye.'
                           : 'Sorry, there was an error. Please try again later.';
                         await sendWhatsAppMessage(phoneNumber, errorMsg);
-serve(handler);
+                      }
+                    }
                   }
                 }
               }
