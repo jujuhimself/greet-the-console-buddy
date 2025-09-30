@@ -15,12 +15,6 @@ export default defineConfig(({ mode }) => ({
       }
     }
   },
-  define: {
-    'process.env': {
-      STRIPE_SECRET_KEY: JSON.stringify(process.env.STRIPE_SECRET_KEY),
-      STRIPE_PUBLISHABLE_KEY: JSON.stringify(process.env.STRIPE_PUBLISHABLE_KEY),
-    }
-  },
   plugins: [
     react(),
     // mode === 'development' &&
