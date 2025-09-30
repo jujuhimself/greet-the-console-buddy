@@ -840,7 +840,12 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
     try {
       // Detect language and route through care orchestrator
       const lang = detectLanguage(message);
-      const input: OrchestratorInput = { text: message, lang };
+      const input: OrchestratorInput = { 
+        text: message, 
+        lang,
+        sessionId: user?.id || 'anonymous',
+        userId: user?.id
+      };
       
       const response = await route(input);
       
