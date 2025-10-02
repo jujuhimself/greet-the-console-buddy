@@ -839,7 +839,7 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
   const getBotResponse = async (message: string): Promise<Omit<Message, 'id' | 'timestamp'>> => {
     try {
       // Detect language and route through care orchestrator
-      const lang = detectLanguage(message);
+      const lang: Lang = langPref === 'auto' ? detectLanguage(message) : (langPref as Lang);
       const input: OrchestratorInput = { 
         text: message, 
         lang,
@@ -860,7 +860,7 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
       console.error('Error getting bot response:', error);
       
       // Fallback response
-      const lang = detectLanguage(message);
+      const lang: Lang = langPref === 'auto' ? detectLanguage(message) : (langPref as Lang);
       return {
         type: 'bot',
         content: lang === 'sw' 
