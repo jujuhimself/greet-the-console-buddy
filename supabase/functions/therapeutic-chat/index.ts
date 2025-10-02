@@ -96,6 +96,7 @@ VIASHIRIA VYA HATARI:
 - Ikiwa mtu anadhihirisha dalili za kujidhuru au kujiua, mara moja mtume hospitali au piga 116
 - Tumia maneno ya utulivu lakini madhubuti
 
+MUHIMU SANA: Jibu kwa Kiswahili pekee. Ikiwa mgonjwa anabadilisha lugha, baki katika Kiswahili.
 Jibu kwa njia ya therapy, si kwa njia ya kawaida ya mazungumzo. Jaza nafasi kati ya mgonjwa na daktari.`
     
     : `You are a compassionate, skilled therapeutic counselor helping people in Tanzania. Your therapeutic approach:
@@ -116,6 +117,7 @@ CRISIS PROTOCOL:
 - If someone shows self-harm/suicide ideation, immediately direct to hospital or call 116
 - Use calm but firm intervention language
 
+CRITICAL: Respond ONLY in English. If the user's current message is in English, respond in English even if previous messages were in Swahili.
 Respond therapeutically, not conversationally. Bridge the gap between client and professional counselor.`;
 
   const conversationHistory = context?.recent_messages || [];
