@@ -10,6 +10,7 @@ import SystemAlertsTab from "@/components/admin/SystemAlertsTab";
 import AuditLogsTab from "@/components/admin/AuditLogsTab";
 import BackupsExportTab from "@/components/admin/BackupsExportTab";
 import ImpersonateUserTab from "@/components/admin/ImpersonateUserTab";
+import WhatsAppMessages from "@/pages/admin/WhatsAppMessages";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -316,13 +317,14 @@ const AdminDashboard = () => {
             }}
           />
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid w-full grid-cols-7">
+            <TabsList className="grid w-full grid-cols-8">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="approvals">Approvals</TabsTrigger>
               <TabsTrigger value="analytics">Analytics</TabsTrigger>
               <TabsTrigger value="alerts">System Alerts</TabsTrigger>
               <TabsTrigger value="logs">Audit Logs</TabsTrigger>
+              <TabsTrigger value="whatsapp">WhatsApp</TabsTrigger>
               <TabsTrigger value="tools">Platform Tools</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="space-y-6">
@@ -352,6 +354,9 @@ const AdminDashboard = () => {
             </TabsContent>
             <TabsContent value="logs" className="space-y-6">
               <AuditLogsTab />
+            </TabsContent>
+            <TabsContent value="whatsapp" className="space-y-6">
+              <WhatsAppMessages />
             </TabsContent>
             <TabsContent value="tools" className="space-y-6">
               <BackupsExportTab />

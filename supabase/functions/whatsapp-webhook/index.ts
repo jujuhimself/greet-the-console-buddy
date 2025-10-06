@@ -4,6 +4,7 @@
 // Local dev: http://127.0.0.1:54321/functions/v1/whatsapp-webhook
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.2';
 
 // CORS headers so Meta/Facebook can call this publicly from anywhere
 const corsHeaders = {
@@ -16,6 +17,11 @@ const corsHeaders = {
 const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") ?? "bepawa_whatsapp_verify_9c4f2c5d";
 const WHATSAPP_ACCESS_TOKEN = Deno.env.get("WHATSAPP_ACCESS_TOKEN");
 const WHATSAPP_PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID");
+
+// Initialize Supabase client
+const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Care orchestrator types and logic (embedded)
 type Lang = 'en' | 'sw';
@@ -270,11 +276,57 @@ async function handler(req: Request): Promise<Response> {
                     if (userText && phoneNumber) {
                       // Detect language and route through care orchestrator
                       const lang = detectLanguage(userText);
-                      const input: OrchestratorInput = { text: userText, lang };
                       
                       try {
-                        const response = await route(input);
-                        await sendWhatsAppMessage(phoneNumber, response.content, response.suggestions);
+                        // Get or create conversation
+                        let { data: conversation } = await supabase
+                          .from('chat_conversations')
+                          .select('*')
+                          .eq('phone_number', phoneNumber)
+                          .eq('channel', 'whatsapp')
+                          .single();
+
+                        if (!conversation) {
+                          const { data: newConv } = await supabase
+                            .from('chat_conversations')
+                            .insert({
+                              user_id: '00000000-0000-0000-0000-000000000000', // System user for WhatsApp
+                              session_id: `whatsapp_${phoneNumber}`,
+                              channel: 'whatsapp',
+                              phone_number: phoneNumber,
+                              language: lang
+                            })
+                            .select()
+                            .single();
+                          conversation = newConv;
+                        }
+
+                        if (conversation) {
+                          // Save user message
+                          await supabase
+                            .from('chat_messages')
+                            .insert({
+                              conversation_id: conversation.id,
+                              role: 'user',
+                              content: userText
+                            });
+
+                          // Get bot response
+                          const input: OrchestratorInput = { text: userText, lang };
+                          const response = await route(input);
+                          
+                          // Save bot message
+                          await supabase
+                            .from('chat_messages')
+                            .insert({
+                              conversation_id: conversation.id,
+                              role: 'assistant',
+                              content: response.content,
+                              metadata: { suggestions: response.suggestions, category: response.category }
+                            });
+
+                          await sendWhatsAppMessage(phoneNumber, response.content, response.suggestions);
+                        }
                       } catch (error) {
                         console.error("Error processing message:", error);
                         const errorMsg = lang === 'sw' 
