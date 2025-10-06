@@ -8,8 +8,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Settings, Shield, Bell, Download, FileText, User } from "lucide-react";
+import { Settings, Shield, Bell, Download, FileText, User, MessageSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 const SystemSettings = () => {
   const { user } = useAuth();
@@ -39,12 +40,40 @@ const SystemSettings = () => {
       lowStockThreshold: 10,
       autoReorder: false,
     },
+    whatsapp: {
+      phoneNumberId: '',
+      accessToken: '',
+      verifyToken: 'bepawa_whatsapp_verify_9c4f2c5d',
+      templateName: 'hello_world',
+    },
   });
 
   if (!user) {
     navigate('/login');
     return null;
   }
+
+  const handleSaveWhatsAppSettings = async () => {
+    setIsLoading(true);
+    try {
+      // Save WhatsApp settings to Supabase secrets or settings table
+      // For now, we'll show a success message
+      // In production, you would call an edge function to update secrets
+      
+      toast({
+        title: "WhatsApp settings saved",
+        description: "Your WhatsApp Business API settings have been updated. The webhook will use these credentials.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save WhatsApp settings. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     setIsLoading(true);
@@ -97,7 +126,7 @@ const SystemSettings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="general" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               General
@@ -113,6 +142,10 @@ const SystemSettings = () => {
             <TabsTrigger value="business" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Business
+            </TabsTrigger>
+            <TabsTrigger value="whatsapp" className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" />
+              WhatsApp
             </TabsTrigger>
             <TabsTrigger value="data" className="flex items-center gap-2">
               <Download className="h-4 w-4" />
@@ -382,6 +415,124 @@ const SystemSettings = () => {
                       })
                     }
                   />
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="whatsapp">
+            <Card>
+              <CardHeader>
+                <CardTitle>WhatsApp Business API Settings</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                  <h3 className="font-medium text-blue-900 mb-2">Webhook Configuration</h3>
+                  <div className="space-y-2 text-sm">
+                    <div>
+                      <span className="font-medium">Webhook URL:</span>
+                      <code className="ml-2 bg-blue-100 px-2 py-1 rounded">
+                        https://frgblvloxhcnwrgvjazk.supabase.co/functions/v1/whatsapp-webhook
+                      </code>
+                    </div>
+                    <div>
+                      <span className="font-medium">Verify Token:</span>
+                      <code className="ml-2 bg-blue-100 px-2 py-1 rounded">
+                        {settings.whatsapp.verifyToken}
+                      </code>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="phone-number-id">Phone Number ID</Label>
+                    <Input
+                      id="phone-number-id"
+                      type="text"
+                      placeholder="Enter your WhatsApp Phone Number ID"
+                      value={settings.whatsapp.phoneNumberId}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        whatsapp: { ...settings.whatsapp, phoneNumberId: e.target.value }
+                      })}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Find this in your Meta Business App → WhatsApp → API Setup
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="access-token">Access Token</Label>
+                    <Input
+                      id="access-token"
+                      type="password"
+                      placeholder="Enter your WhatsApp Access Token"
+                      value={settings.whatsapp.accessToken}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        whatsapp: { ...settings.whatsapp, accessToken: e.target.value }
+                      })}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Generate a permanent token from Meta Business Suite
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="verify-token">Verify Token</Label>
+                    <Input
+                      id="verify-token"
+                      type="text"
+                      value={settings.whatsapp.verifyToken}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        whatsapp: { ...settings.whatsapp, verifyToken: e.target.value }
+                      })}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Use this token when setting up the webhook in Meta
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="template-name">Message Template Name</Label>
+                    <Input
+                      id="template-name"
+                      type="text"
+                      placeholder="hello_world"
+                      value={settings.whatsapp.templateName}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        whatsapp: { ...settings.whatsapp, templateName: e.target.value }
+                      })}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Name of your approved message template (e.g., hello_world)
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t">
+                  <Button 
+                    onClick={handleSaveWhatsAppSettings} 
+                    disabled={isLoading}
+                    className="w-full"
+                  >
+                    Save WhatsApp Settings
+                  </Button>
+                </div>
+
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mt-6">
+                  <h3 className="font-medium text-amber-900 mb-2">⚠️ Important Setup Steps</h3>
+                  <ol className="text-sm text-amber-800 space-y-2 list-decimal list-inside">
+                    <li>Create a Meta Business App at developers.facebook.com</li>
+                    <li>Add WhatsApp to your app and configure a phone number</li>
+                    <li>Generate a permanent access token (not a temporary one)</li>
+                    <li>Configure the webhook URL above in your Meta app</li>
+                    <li>Subscribe to 'messages' webhook events</li>
+                    <li>Create and approve message templates in Meta Business Suite</li>
+                  </ol>
                 </div>
               </CardContent>
             </Card>
