@@ -23,136 +23,40 @@ const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
 const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
-// Care orchestrator types and logic (embedded)
-type Lang = 'en' | 'sw';
-
-interface OrchestratorInput {
-  text: string;
-  lang: Lang;
-}
-
-interface OrchestratorMessage {
-  type: 'bot';
-  content: string;
-  suggestions?: string[];
-  category?: 'general' | 'safety' | 'education';
-}
-
-// Care knowledge and topics
-const carePacks = {
-  topics: [
-    { id: 'anxiety', name: 'Anxiety', labels: ['anxiety', 'anxious', 'panic', 'worry', 'wasiwasi', 'hofu'] },
-    { id: 'depression', name: 'Depression', labels: ['depression', 'sad', 'hopeless', 'huzuni', 'unyongonyko'] },
-    { id: 'stress', name: 'Stress', labels: ['stress', 'pressure', 'overwhelmed', 'msongo', 'shinikizo'] },
-    { id: 'relationships', name: 'Relationships', labels: ['relationship', 'love', 'partner', 'uhusiano', 'mapenzi'] },
-    { id: 'hiv_stigma', name: 'HIV Support', labels: ['hiv', 'stigma', 'discrimination', 'kibaguzi', 'fedheha'] }
-  ],
-  faqs: {
-    anxiety: {
-      en: [
-        { q: "What is anxiety?", a: "Anxiety is a normal stress response, but excessive worry can interfere with daily life." },
-        { q: "How can I manage anxiety?", a: "Try deep breathing, mindfulness, regular exercise, and talking to someone you trust." },
-        { q: "When should I seek help?", a: "If anxiety interferes with work, relationships, or daily activities for weeks." }
-      ],
-      sw: [
-        { q: "Wasiwasi ni nini?", a: "Wasiwasi ni mwitikio wa kawaida wa msongo, lakini wasiwasi wa kupita kiasi unaweza kuathiri maisha ya kila siku." },
-        { q: "Ninawezaje kudhibiti wasiwasi?", a: "Jaribu kupumua kwa kina, kutafakari, mazoezi ya kawaida, na kuzungumza na mtu unayemwamini." },
-        { q: "Ni lini niombe msaada?", a: "Ikiwa wasiwasi unaathiri kazi, mahusiano, au shughuli za kila siku kwa wiki nyingi." }
-      ]
-    },
-    depression: {
-      en: [
-        { q: "What is depression?", a: "Depression is more than feeling sad - it's a persistent low mood that affects daily functioning." },
-        { q: "How can I cope with depression?", a: "Maintain routines, stay connected with others, engage in activities you enjoy, and consider professional help." },
-        { q: "Is depression treatable?", a: "Yes, depression is highly treatable with therapy, medication, or both." }
-      ],
-      sw: [
-        { q: "Unyongonyko ni nini?", a: "Unyongonyko ni zaidi ya kuhisi huzuni - ni hali ya kudhoofika kwa hisia inayoathiri utendaji wa kila siku." },
-        { q: "Ninawezaje kushughulika na unyongonyko?", a: "Dumisha ratiba, uungane na wengine, jiunge na shughuli unazopenda, na fikiria kupata msaada wa kitaalamu." },
-        { q: "Je, unyongonyko unatibiwa?", a: "Ndio, unyongonyko unatibiwa sana kwa tiba, dawa, au vyote viwili." }
-      ]
-    },
-    stress: {
-      en: [
-        { q: "What causes stress?", a: "Stress can be caused by work, relationships, health issues, financial problems, or major life changes." },
-        { q: "How do I reduce stress?", a: "Practice relaxation techniques, exercise regularly, get enough sleep, and organize your time better." },
-        { q: "What are stress symptoms?", a: "Headaches, muscle tension, fatigue, irritability, difficulty concentrating, and sleep problems." }
-      ],
-      sw: [
-        { q: "Ni nini kinasababisha msongo wa mawazo?", a: "Msongo unaweza kusababishwa na kazi, mahusiano, masuala ya afya, matatizo ya kifedha, au mabadiliko makubwa ya maisha." },
-        { q: "Ninawezaje kupunguza msongo?", a: "Fanya mazoezi ya utulivu, fanya mazoezi ya mwili mara kwa mara, pata usingizi wa kutosha, na panga muda wako vizuri." },
-        { q: "Ni dalili gani za msongo?", a: "Maumivu ya kichwa, mivutano ya misuli, uchovu, kukasirika, ugumu wa kufikiri, na matatizo ya usingizi." }
-      ]
-    }
-  }
-};
-
-const crisisPhrases = [
-  'suicide','kill myself','end my life','self harm','kujiua','nimechoka kuishi','najiumiza','najidhuru'
-];
-
-function isCrisis(text: string): boolean {
-  const lower = text.toLowerCase();
-  return crisisPhrases.some(p => lower.includes(p));
-}
-
-function detectTopic(text: string) {
-  const lower = text.toLowerCase();
-  for (const t of carePacks.topics) {
-    if (t.labels.some(lbl => lower.includes(lbl))) return t.id;
-  }
-  return null;
-}
-
-function detectLanguage(text: string): Lang {
-  // Simple language detection based on common Swahili words
-  const swahiliWords = ['nina', 'mimi', 'wewe', 'sisi', 'wao', 'hujambo', 'habari', 'asante', 'karibu', 'samahani', 'tafadhali'];
+// Language detection helper
+function detectLanguage(text: string): 'en' | 'sw' {
+  const swahiliWords = ['nina', 'mimi', 'wewe', 'sisi', 'wao', 'hujambo', 'habari', 'asante', 'karibu', 'samahani', 'tafadhali', 'nahitaji', 'wasiwasi'];
   const lower = text.toLowerCase();
   const hasSwahili = swahiliWords.some(word => lower.includes(word));
   return hasSwahili ? 'sw' : 'en';
 }
 
-function packsFaq(topic: string, lang: Lang): string | null {
-  const pack = (carePacks.faqs as any)[topic];
-  const list = (lang === 'sw' ? pack?.sw : pack?.en) || [];
-  if (!list.length) return null;
-  const lines = list.slice(0, 3).map((f: any) => `• ${f.q}\n  ${f.a}`).join('\n');
-  const name = carePacks.topics.find(t => t.id === topic)?.name || 'Topic';
-  return lang === 'sw'
-    ? `Maswali ya kawaida kuhusu ${name}:\n${lines}`
-    : `Here are a few common questions on ${name}:\n${lines}`;
-}
+// Call the therapeutic-chat edge function for AI-powered responses
+async function getAIResponse(userText: string, conversationHistory: any[], lang: 'en' | 'sw') {
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/therapeutic-chat`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        message: userText,
+        conversationHistory,
+        langPref: lang
+      })
+    });
 
-async function route(input: OrchestratorInput): Promise<OrchestratorMessage> {
-  const { text, lang } = input;
-
-  // 1) Safety first
-  if (isCrisis(text)) {
-    const content = lang === 'sw'
-      ? 'Nina wasiwasi na usalama wako. Ikiwa uko kwenye hatari ya dharura, piga 116 (Tanzania) au nenda hospitali iliyo karibu. Hujako peke yako — usalama wako ni wa kwanza.'
-      : `I'm concerned about your safety. If you're in immediate danger, call 116 (Tanzania) or go to the nearest hospital. You are not alone — your safety comes first.`;;
-    return { type: 'bot', content, suggestions: ['Grounding exercise','Talk to a counselor'], category: 'safety' };
-  }
-
-  // 2) Packs first (known paths)
-  const topic = detectTopic(text);
-  if (topic) {
-    const faq = packsFaq(topic, lang);
-    if (faq) {
-      return {
-        type: 'bot',
-        content: faq,
-        suggestions: ['Coping tools', `Quick check (${carePacks.topics.find(t => t.id===topic)?.name})`, 'Talk to a counselor'],
-        category: 'general'
-      };
+    if (!response.ok) {
+      throw new Error(`AI response failed: ${response.status}`);
     }
-  }
 
-  // 4) Fallback
-  const content = lang === 'sw'
-    ? 'Karibu BEPAWA Care! Niko hapa kukusaidia. Unaweza kuniambia unajisikiaje au kile unachohitaji msaada nacho?'
-    : `Welcome to BEPAWA Care! I'm here to help you. You can tell me how you're feeling or what you need support with.`;;
-  return { type: 'bot', content, suggestions: ['Coping tools','Talk to a counselor', 'Anxiety help', 'Depression support'], category: 'general' };
+    const data = await response.json();
+    return data;
+  } catch (error) {
+    console.error('Error calling therapeutic-chat:', error);
+    return null;
+  }
 }
 
 async function sendWhatsAppMessage(phoneNumber: string, message: string, suggestions?: string[]) {
@@ -302,6 +206,13 @@ async function handler(req: Request): Promise<Response> {
                         }
 
                         if (conversation) {
+                          // Get conversation history
+                          const { data: history } = await supabase
+                            .from('chat_messages')
+                            .select('role, content')
+                            .eq('conversation_id', conversation.id)
+                            .order('created_at', { ascending: true });
+
                           // Save user message
                           await supabase
                             .from('chat_messages')
@@ -311,21 +222,39 @@ async function handler(req: Request): Promise<Response> {
                               content: userText
                             });
 
-                          // Get bot response
-                          const input: OrchestratorInput = { text: userText, lang };
-                          const response = await route(input);
+                          // Get AI-powered response
+                          const aiResponse = await getAIResponse(
+                            userText,
+                            history || [],
+                            lang
+                          );
                           
-                          // Save bot message
-                          await supabase
-                            .from('chat_messages')
-                            .insert({
-                              conversation_id: conversation.id,
-                              role: 'assistant',
-                              content: response.content,
-                              metadata: { suggestions: response.suggestions, category: response.category }
-                            });
+                          if (aiResponse) {
+                            // Save bot message
+                            await supabase
+                              .from('chat_messages')
+                              .insert({
+                                conversation_id: conversation.id,
+                                role: 'assistant',
+                                content: aiResponse.content,
+                                metadata: { 
+                                  suggestions: aiResponse.suggestions,
+                                  category: aiResponse.category 
+                                }
+                              });
 
-                          await sendWhatsAppMessage(phoneNumber, response.content, response.suggestions);
+                            await sendWhatsAppMessage(
+                              phoneNumber, 
+                              aiResponse.content, 
+                              aiResponse.suggestions
+                            );
+                          } else {
+                            // Fallback if AI fails
+                            const fallbackMsg = lang === 'sw'
+                              ? 'Samahani, kuna tatizo. Jaribu tena baadaye.'
+                              : 'Sorry, there was an error. Please try again later.';
+                            await sendWhatsAppMessage(phoneNumber, fallbackMsg);
+                          }
                         }
                       } catch (error) {
                         console.error("Error processing message:", error);
