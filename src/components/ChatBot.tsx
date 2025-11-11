@@ -296,11 +296,11 @@ ${faqs.map(f => `• ${f.q}\n  ${f.a}`).join('\n')}`)
   useEffect(() => {
     if (isOpen && messages.length === 0) {
       const getRoleSpecificGreeting = () => {
-        if (!user) return "Hello! 👋 I'm your BEPAWA assistant. How can I help you today?";
+        if (!user) return "Hello! 💚 I'm Bepawa Care, your mental health companion. I'm here to listen and support you. How are you feeling today?";
         
         switch (user.role) {
           case 'individual':
-            return `Hello ${user.name}! 👋 I'm your personal health assistant. I can help with medication tracking, symptom checking, finding nearby services, and connecting you with pharmacists. What can I help you with today?`;
+            return `Hello ${user.name}! 💚 I'm Bepawa Care. I'm here to support your mental health and wellbeing. How are you feeling today?`;
           case 'retail':
             return `Welcome back, ${user.pharmacyName}! 🏪 I'm your business assistant. I can provide inventory insights, restock suggestions, standard treatment guidelines, order summaries, and even generate quick invoices. How can I assist your pharmacy today?`;
           case 'wholesale':
@@ -310,24 +310,29 @@ ${faqs.map(f => `• ${f.q}\n  ${f.a}`).join('\n')}`)
           case 'admin':
             return `Hello Admin! 👨‍💼 I can help with platform analytics, user management, system monitoring, and operational insights. What would you like to review?`;
           default:
-            return "Hello! 👋 I'm your BEPAWA assistant. How can I help you today?";
+            return "Hello! 💚 I'm Bepawa Care. I'm here to listen and support you. How are you feeling today?";
         }
       };
 
       const getRoleSpecificSuggestions = () => {
-        if (!user) return ['How do I get started?', 'What services do you offer?', 'Contact support'];
+        if (!user) return [
+          'I feel stressed 😔',
+          'I need someone to talk to 💬',
+          'I feel anxious 😰',
+          'I have alcohol addiction 🍺',
+          'Coping strategies 💪',
+          'Book a counselor 🤝'
+        ];
         
         switch (user.role) {
           case 'individual':
             return [
-              'Track my medications',
-              'Check symptoms',
-              'Find nearby pharmacies',
-              'Ask a pharmacist',
-              'Stress self-check',
-              'Anxiety scale',
-              'HIV stigma support',
-              'Breathing exercise'
+              'I feel stressed 😔',
+              'I need someone to talk to 💬',
+              'I feel anxious 😰',
+              'Coping strategies 💪',
+              'Breathing exercise 🧘',
+              'Book a counselor 🤝'
             ];
           case 'retail':
             return ['What’s the first-line treatment for malaria in adults?', 'What’s the dosage for paracetamol in children?', 'Show me inventory insights', 'Generate sales report', 'Treatment guidelines', 'Cardiac arrest protocol'];
@@ -338,7 +343,7 @@ ${faqs.map(f => `• ${f.q}\n  ${f.a}`).join('\n')}`)
           case 'admin':
             return ['Platform analytics', 'User insights', 'System status', 'Revenue reports'];
           default:
-            return ['Platform features', 'Getting started', 'Contact support'];
+            return ['I feel stressed 😔', 'I need someone to talk to 💬', 'Coping strategies 💪'];
         }
       };
 
@@ -890,24 +895,7 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
     setIsTyping(true);
     
     try {
-      // Check for greetings
-      const lowerMessage = message.toLowerCase();
-      if (['hi', 'hello', 'mambo', 'habari', 'salama'].some(g => lowerMessage.includes(g))) {
-        const greetingMessage: Message = {
-          id: (Date.now() + 1).toString(),
-          type: 'bot',
-          content: langPref === 'sw' 
-            ? 'Habari! Karibu katika Bepawa Care. Ninaweza kukusaidia nini leo?' 
-            : 'Hello! Welcome to Bepawa Care. How can I help you today?',
-          timestamp: new Date(),
-          suggestions: ['I need medical advice', 'I have a question', 'Help with my medication'],
-          category: 'general'
-        };
-        setMessages(prev => [...prev, greetingMessage]);
-        return;
-      }
-      
-      // Get bot response
+      // Get bot response directly - let therapeutic AI handle all inputs including greetings
       const botResponse = await getBotResponse(message);
       const botMessage: Message = {
         ...botResponse,
@@ -936,6 +924,7 @@ const getTreatmentGuidelineResponse = (query: string): Message | null => {
       }
       
       // Update conversation context
+      const lowerMessage = message.toLowerCase();
       setConversationContext(prev => ({
         ...prev,
         lastTopic: lowerMessage.includes('medication') ? 'medication' :
