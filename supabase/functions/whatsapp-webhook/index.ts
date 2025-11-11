@@ -25,10 +25,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Language detection helper
 function detectLanguage(text: string): 'en' | 'sw' {
-  const swahiliWords = ['nina', 'mimi', 'wewe', 'sisi', 'wao', 'hujambo', 'habari', 'asante', 'karibu', 'samahani', 'tafadhali', 'nahitaji', 'wasiwasi'];
-  const lower = text.toLowerCase();
-  const hasSwahili = swahiliWords.some(word => lower.includes(word));
-  return hasSwahili ? 'sw' : 'en';
+  // Robust heuristic: match whole words, ignore short particles
+  const cleaned = text.toLowerCase().replace(/[^\p{L}\s]/gu, ' ');
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+  const swLex = new Set(['habari','mambo','asante','karibu','samahani','tafadhali','nahitaji','wasiwasi','hujambo','sijambo','poa','sawa','nina','niko','mimi','wewe','yeye']);
+  const enLex = new Set(['hello','hi','please','sorry','help','feel','feeling','anxious','anxiety','sad','angry','happy','family','support','stress','worried']);
+  let sw = 0, en = 0;
+  for (const w of tokens) {
+    if (w.length < 3) continue;
+    if (swLex.has(w)) sw++;
+    if (enLex.has(w)) en++;
+  }
+  if (sw > en) return 'sw';
+  if (en > sw) return 'en';
+  return 'en';
 }
 
 // Call the therapeutic-chat edge function for AI-powered responses
@@ -43,7 +53,7 @@ async function getAIResponse(userText: string, conversationHistory: any[], lang:
       body: JSON.stringify({
         message: userText,
         conversationHistory,
-        langPref: lang
+        language: lang
       })
     });
 

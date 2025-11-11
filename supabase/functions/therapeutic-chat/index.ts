@@ -35,23 +35,33 @@ const crisisPhrases = [
 ];
 
 function detectLanguage(text: string): 'en' | 'sw' {
-  const swahiliWords = [
-    'nina', 'niko', 'mimi', 'wewe', 'yeye', 'kwa', 'na', 'ya', 'wa', 'za', 'la', 'pa', 'ku',
-    'habari', 'mambo', 'poa', 'sawa', 'asante', 'karibu', 'pole', 'hujambo', 'sijambo',
-    'nimehuzunika', 'najisikia', 'nina wasiwasi', 'ninahitaji', 'tafadhali', 'msaada'
-  ];
-  const englishWords = ['i', 'am', 'is', 'are', 'the', 'and', 'or', 'but', 'help', 'feel', 'feeling'];
-  
-  const words = text.toLowerCase().split(/\s+/);
-  let swScore = 0, enScore = 0;
-  
-  words.forEach(word => {
-    if (swahiliWords.some(sw => word.includes(sw))) swScore++;
-    if (englishWords.some(en => word.includes(en))) enScore++;
-  });
-  
-  return swScore > enScore ? 'sw' : 'en';
+  // Robust heuristic: match whole words, ignore very short particles to avoid false positives
+  const cleaned = text.toLowerCase().replace(/[^\p{L}\s]/gu, ' ');
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+
+  const swLex = new Set<string>([
+    'habari','mambo','asante','karibu','pole','hujambo','sijambo','poa','sawa',
+    'nina','niko','mimi','wewe','yeye','najisikia','wasiwasi','ninahitaji','tafadhali','msaada',
+    'huzuni','furaha','hasira','uchovu','maumivu'
+  ]);
+  const enLex = new Set<string>([
+    'hello','hi','please','sorry','help','feel','feeling','anxious','anxiety','sad','angry','happy',
+    'family','work','school','support','stress','worried'
+  ]);
+
+  let sw = 0, en = 0;
+  for (const w of tokens) {
+    if (w.length < 3) continue; // ignore short particles like "na", "ya", "wa"
+    if (swLex.has(w)) sw++;
+    if (enLex.has(w)) en++;
+  }
+
+  if (sw > en) return 'sw';
+  if (en > sw) return 'en';
+  // Default to English on ties/unknown to avoid over-triggering Swahili
+  return 'en';
 }
+
 
 function isCrisisMessage(text: string): boolean {
   const lower = text.toLowerCase();
