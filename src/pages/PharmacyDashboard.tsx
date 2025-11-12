@@ -24,7 +24,7 @@ import PharmacyRecentOrders from "@/components/pharmacy/PharmacyRecentOrders";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useNotificationSubscription } from "@/hooks/useNotifications";
-import { NotificationService } from "@/components/NotificationSystem";
+import { notificationService } from "@/services/notificationService";
 
 import { SUBSCRIPTION_PLANS } from "@/types/subscription";
 import { supabase } from "@/integrations/supabase/client";
@@ -76,7 +76,24 @@ export default function PharmacyDashboard() {
 
   useEffect(() => {
     if (data && user?.pharmacyName) {
-        NotificationService.addSystemNotification(`Welcome back, ${user.pharmacyName}! Your dashboard has been updated.`);
+      const sendWelcomeNotification = async () => {
+        try {
+          await notificationService.createNotification({
+            user_id: user.id,
+            title: 'Welcome Back!',
+            message: `Welcome back, ${user.pharmacyName}! Your dashboard has been updated with the latest information.`,
+            type: 'info',
+            metadata: {
+              priority: 'low',
+              category: 'system'
+            }
+          });
+        } catch (error) {
+          console.error('Failed to send welcome notification:', error);
+        }
+      };
+      
+      sendWelcomeNotification();
     }
   }, [data, user?.pharmacyName]);
 
