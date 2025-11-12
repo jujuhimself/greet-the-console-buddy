@@ -6,7 +6,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { notificationService } from '@/services/notificationService';
 import type { Notification } from '@/services/notificationService';
-import { useRouter } from 'react-router-dom';
 
 export const NotificationCenter = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
