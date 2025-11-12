@@ -7,7 +7,7 @@ import { useSubscription } from "@/hooks/use-subscription";
 import QuickReorder from "@/components/QuickReorder";
 import { BreadcrumbNavigation } from "@/components/BreadcrumbNavigation";
 import { AnalyticsDashboard } from "@/components/AnalyticsDashboard";
-import { NotificationService } from "@/components/NotificationSystem";
+import { NotificationCenter } from "@/components/NotificationSystem";
 import { supabase } from "@/integrations/supabase/client";
 import { useNotificationSubscription } from "@/hooks/useNotifications";
 import PharmacyStatsCards from "@/components/pharmacy/PharmacyStatsCards";

@@ -24,7 +24,7 @@ import PharmacyRecentOrders from "@/components/pharmacy/PharmacyRecentOrders";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSubscription } from "@/hooks/use-subscription";
 import { useNotificationSubscription } from "@/hooks/useNotifications";
-import { NotificationCenter } from "@/components/NotificationSystem";
+import { notificationService } from "@/services/notificationService";
 
 import { SUBSCRIPTION_PLANS } from "@/types/subscription";
 import { supabase } from "@/integrations/supabase/client";
