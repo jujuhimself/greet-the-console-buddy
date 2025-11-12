@@ -83,68 +83,51 @@ async function searchKnowledge(supabase: any, query: string, lang: string, topK 
 
 async function callGroqLLM(message: string, context: any, language: string): Promise<string> {
   const groqApiKey = Deno.env.get('GROQ_API_KEY');
-  if (!groqApiKey) {
-    throw new Error('GROQ_API_KEY not configured');
-  }
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
-  const systemPrompt = language === 'sw' 
+  // Strong, compact therapeutic style with rapport-first guidance
+  const systemPrompt = language === 'sw'
     ? `Wewe ni Bepawaa Care 💚, mshauri wa kisaikolojia wa AI.
 
 KANUNI MUHIMU:
-
-1. LUGHA: Jibu kwa SWAHILI TU. Kamwe usibadilishe kwenda Kiingereza. Swahili asilia, si tafsiri.
-
-2. UREFU: Jibu FUPI - mistari 2-4 tu. Kama mtu wa kweli wa WhatsApp. Epuka mistari mingi.
-
-3. EMOJI: Tumia emoji MARA KWA MARA kusaidia hisia (💚 🤗 😔 💪 🌟 ✨).
-
-4. MTIRIRIKO:
-   - Kwanza: Tambua hisia (mfano: "Pole sana unajisikia hivyo 😔")
-   - Pili: Uliza swali moja tu la wazi (mfano: "Nini kinakusumbua zaidi?")
-   - Tatu: Maliza kwa upendo (mfano: "Niko hapa kwako 💚")
-
-5. USALAMA: Ikiwa mtu anazungumza kujiua/kujidhuru → piga Lifeline Tanzania: 0800 112 112 au 116 🆘
-
-MFANO:
-Mtumiaji: "Nina wasiwasi"
-Wewe: "Pole sana unajisikia hivyo 😔 Wasiwasi inaweza kuwa nzito sana. Nini kinakusumbua zaidi sasa hivi? Niko hapa kwako 💚"
-
-Jibu kwa ujumbe MMOJA mfupi (mistari 2-4), kama mshauri wa kweli.`
-    
+1) Lugha: Jibu kwa KISWAHILI TU — kamwe usibadilishe.
+2) Urefu: FUPI sana — mistari 2-4.
+3) Emojis: Tumia 1-2 emojis zenye staha (💚 🤗 😔 💪 🌟 ✨).
+4) Mtiririko: (i) Tambua hisia, (ii) Uliza swali moja wazi, (iii) Malizia kwa joto la upendo.
+5) Usalama: Ukisikia kujiua/kujidhuru → toa msaada wa haraka: Lifeline 116 (TZ) 🆘.
+6) Ujenzi wa urafiki (rapport): Katika jumbe 2-3 za mwanzo, uliza swali moja rahisi ili kumfahamu mtumiaji (jina lake anapopenda, jambo kuu linalomsumbua, aina ya msaada anaopendelea). Epuka maelezo marefu.
+`
     : `You are Bepawaa Care 💚, an AI mental health counselor.
 
 CRITICAL RULES:
-
-1. LANGUAGE: Reply in ENGLISH ONLY. Never switch to Swahili. Natural English, not translated.
-
-2. LENGTH: Keep responses SHORT - 2-4 lines max. Like a real person texting on WhatsApp. Avoid long paragraphs.
-
-3. EMOJIS: Use emojis REGULARLY to enhance emotional connection (💚 🤗 😔 💪 🌟 ✨).
-
-4. FLOW:
-   - First: Acknowledge emotion (e.g., "I'm sorry you're feeling that way 😔")
-   - Second: Ask one open question (e.g., "What's been weighing on you most?")
-   - Third: End warmly (e.g., "I'm here for you 💚")
-
-5. SAFETY: If someone mentions suicide/self-harm → refer to Lifeline Tanzania: 0800 112 112 or 116 🆘
-
-EXAMPLE:
-User: "I feel anxious"
-You: "I'm sorry you're feeling anxious 😔 Anxiety can be really overwhelming. What's been causing you the most stress lately? I'm here to listen 💚"
-
-Reply in ONE short message (2-4 lines), like a real human counselor.`;
+1) Language: Reply in ENGLISH ONLY — never switch.
+2) Length: Keep it VERY SHORT — 2-4 lines.
+3) Emojis: Always include 1-2 caring emojis (💚 🤗 😔 💪 🌟 ✨).
+4) Flow: (i) Acknowledge emotion, (ii) Ask one open question, (iii) End warmly.
+5) Safety: If suicide/self-harm → provide immediate help for Tanzania: 116 🆘.
+6) Build rapport first: In the first 2-3 messages, ask one simple question to know the user (name preference, main concern, preferred support style). Avoid over-explaining.`;
 
   const conversationHistory = context?.recent_messages || [];
-  const contextInfo = context?.emotional_state ? `\n\nContext: User's emotional state: ${context.emotional_state}. Topics: ${context.topics_discussed?.join(', ') || 'none'}.` : '';
+  const sess = typeof context?.session_count === 'number' ? context.session_count : 1;
+  const extraContext = context?.emotional_state
+    ? `\n\nContext: emotional_state=${context.emotional_state}; topics=${(context.topics_discussed||[]).join(', ')}; session_count=${sess}`
+    : `\n\nContext: session_count=${sess}`;
 
   const messages = [
-    { role: 'system', content: systemPrompt + contextInfo },
+    { role: 'system', content: systemPrompt + extraContext },
     ...conversationHistory.slice(-6),
     { role: 'user', content: message }
   ];
 
-  try {
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const ensureEmoji = (text: string) => {
+    const hasEmoji = /[\u{1F300}-\u{1FAFF}]/u.test(text) || /💚|🤗|😔|💪|🌟|✨/.test(text);
+    return hasEmoji ? text : `${text.trim()} 💚`;
+  };
+
+  // Try Groq first if configured, otherwise fall back to Lovable AI gateway
+  const tryGroq = async () => {
+    if (!groqApiKey) throw new Error('GROQ_API_KEY not configured');
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${groqApiKey}`,
@@ -153,23 +136,69 @@ Reply in ONE short message (2-4 lines), like a real human counselor.`;
       body: JSON.stringify({
         model: 'llama-3.1-8b-instant',
         messages,
-        max_tokens: 200, // Shorter responses
-        temperature: 0.8, // More natural variation
-        stream: false
+        max_tokens: 260,
+        temperature: 0.8,
+        stream: false,
       }),
     });
+    if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    return ensureEmoji(content || (language === 'sw' 
+      ? 'Samahani, nina tatizo la teknolojia. Tafadhali niambie kwa ufupi unajisikiaje sasa?'
+      : "I'm having a technical issue. Briefly tell me how you feel right now?"));
+  };
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
+  const tryLovable = async () => {
+    if (!lovableApiKey) throw new Error('LOVABLE_API_KEY not configured');
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages,
+        stream: false,
+      }),
+    });
+    if (!res.ok) {
+      if (res.status === 429) throw new Error('Rate limited by AI gateway');
+      if (res.status === 402) throw new Error('Payment required by AI gateway');
+      throw new Error(`AI gateway error: ${res.status}`);
     }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    return ensureEmoji(content || (language === 'sw' 
+      ? 'Samahani, nina tatizo la teknolojia. Tafadhali niambie kwa ufupi unajisikiaje sasa?'
+      : "I'm having a technical issue. Briefly tell me how you feel right now?"));
+  };
 
-    const data = await response.json();
-    return data.choices[0]?.message?.content || 'I understand you\'re reaching out. Can you tell me more about how you\'re feeling right now?';
-  } catch (error) {
-    console.error('Groq LLM error:', error);
-    return language === 'sw' 
-      ? 'Samahani, nina tatizo la teknologia. Je, unaweza kuniambia kwa ufupi unajisikiaje sasa?'
-      : 'I\'m having a technical issue. Can you briefly tell me how you\'re feeling right now?';
+  try {
+    if (groqApiKey) {
+      return await tryGroq();
+    }
+    return await tryLovable();
+  } catch (err) {
+    console.error('LLM primary error:', err);
+    try {
+      // Fallback to the other provider if available
+      if (groqApiKey && lovableApiKey) {
+        return await tryLovable();
+      }
+      if (!groqApiKey && lovableApiKey) {
+        return await tryLovable();
+      }
+      if (groqApiKey && !lovableApiKey) {
+        return await tryGroq();
+      }
+    } catch (err2) {
+      console.error('LLM secondary error:', err2);
+    }
+    return language === 'sw'
+      ? 'Samahani, nina tatizo la teknolojia. Je, unaweza kuniambia kwa ufupi unajisikiaje sasa? 💚'
+      : "I'm having a technical issue. Can you briefly tell me how you're feeling right now? 💚";
   }
 }
 
