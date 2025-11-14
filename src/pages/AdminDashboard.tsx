@@ -171,6 +171,17 @@ const AdminDashboard = () => {
             message: "Your account has been approved by the BEPAWA admin. You can now access all features on the platform.",
             type: "success",
           });
+          
+          // Send welcome email
+          const approvedUser = pendingUsers.find(u => u.id === userId);
+          if (approvedUser) {
+            const { emailService } = await import('@/services/emailService');
+            await emailService.sendWelcomeEmail(
+              approvedUser.email,
+              approvedUser.name || 'User',
+              approvedUser.role
+            );
+          }
         } catch (notifyErr) {
           logError(notifyErr, "Failed to send approval notification");
         }
