@@ -133,6 +133,13 @@ class OrderService {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
+    // Get order details for notification
+    const { data: order } = await supabase
+      .from('orders')
+      .select('*, profiles!orders_user_id_fkey(email)')
+      .eq('id', orderId)
+      .single();
+
     const { error } = await supabase
       .from('order_status_history')
       .insert({
@@ -145,6 +152,22 @@ class OrderService {
     if (error) {
       console.error('Error updating order status:', error);
       throw error;
+    }
+
+    // Send notification to order owner
+    if (order && order.user_id) {
+      try {
+        const { comprehensiveNotificationService } = await import('./comprehensiveNotificationService');
+        await comprehensiveNotificationService.notifyOrderStatusChange(
+          order.user_id,
+          order.profiles?.email || '',
+          order.order_number,
+          order.status,
+          status
+        );
+      } catch (notifError) {
+        console.error('Failed to send order status notification:', notifError);
+      }
     }
   }
 

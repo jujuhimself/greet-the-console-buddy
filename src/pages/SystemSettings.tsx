@@ -42,9 +42,14 @@ const SystemSettings = () => {
     },
     whatsapp: {
       phoneNumberId: '',
+      businessAccountId: '',
       accessToken: '',
       verifyToken: 'bepawa_whatsapp_verify_9c4f2c5d',
       templateName: 'hello_world',
+    },
+    resend: {
+      apiKey: '',
+      fromEmail: 'notifications@bepawaa.com',
     },
   });
 
@@ -126,7 +131,7 @@ const SystemSettings = () => {
         </div>
 
         <Tabs defaultValue="general" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
+          <TabsList className="grid w-full grid-cols-7">
             <TabsTrigger value="general" className="flex items-center gap-2">
               <User className="h-4 w-4" />
               General
@@ -142,6 +147,10 @@ const SystemSettings = () => {
             <TabsTrigger value="business" className="flex items-center gap-2">
               <Settings className="h-4 w-4" />
               Business
+            </TabsTrigger>
+            <TabsTrigger value="integrations" className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Integrations
             </TabsTrigger>
             <TabsTrigger value="whatsapp" className="flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
@@ -459,6 +468,23 @@ const SystemSettings = () => {
                     />
                     <p className="text-sm text-gray-500">
                       Find this in your Meta Business App → WhatsApp → API Setup
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="business-account-id">Business Account ID</Label>
+                    <Input
+                      id="business-account-id"
+                      type="text"
+                      placeholder="Enter your WhatsApp Business Account ID"
+                      value={settings.whatsapp.businessAccountId}
+                      onChange={(e) => setSettings({
+                        ...settings,
+                        whatsapp: { ...settings.whatsapp, businessAccountId: e.target.value }
+                      })}
+                    />
+                    <p className="text-sm text-gray-500">
+                      Your WhatsApp Business Account ID from Meta Business Manager
                     </p>
                   </div>
 
