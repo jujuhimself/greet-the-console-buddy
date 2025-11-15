@@ -3,6 +3,7 @@ import { User as SupabaseUser, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { auditService } from '@/services/auditService';
 import { UserSubscription, SubscriptionPlan, SUBSCRIPTION_PLANS } from '@/types/subscription';
+import { emailService } from '@/services/emailService';
 
 export interface User {
   id: string;
@@ -334,6 +335,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         setIsLoading(false);
         return { success: false, error: error.message };
+      }
+      if (data) {
+        // Send welcome email using Resend
+        try {
+          await emailService.sendWelcomeEmail(
+            userData.email!,
+            userData.name,
+            userData.role
+          );
+        } catch (emailError) {
+          console.error('Failed to send welcome email:', emailError);
+        }
       }
       
       setIsLoading(false);
