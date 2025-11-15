@@ -61,18 +61,30 @@ const SystemSettings = () => {
   const handleSaveWhatsAppSettings = async () => {
     setIsLoading(true);
     try {
-      // Save WhatsApp settings to Supabase secrets or settings table
-      // For now, we'll show a success message
-      // In production, you would call an edge function to update secrets
-      
-      toast({
-        title: "WhatsApp settings saved",
-        description: "Your WhatsApp Business API settings have been updated. The webhook will use these credentials.",
+      const response = await supabase.functions.invoke('update-whatsapp-credentials', {
+        body: {
+          accessToken: settings.whatsapp.accessToken,
+          phoneNumberId: settings.whatsapp.phoneNumberId,
+          verifyToken: settings.whatsapp.verifyToken,
+        }
       });
-    } catch (error) {
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (response.data?.error) {
+        throw new Error(response.data.error);
+      }
+
+      toast({
+        title: "WhatsApp credentials validated ✓",
+        description: "Your credentials are valid. Make sure to update the Supabase secrets (WHATSAPP_ACCESS_TOKEN, WHATSAPP_PHONE_NUMBER_ID) in Project Settings → Edge Functions.",
+      });
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "Failed to save WhatsApp settings. Please try again.",
+        description: error.message || "Failed to validate WhatsApp settings. Please check your credentials.",
         variant: "destructive",
       });
     } finally {

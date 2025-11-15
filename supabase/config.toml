@@ -85,3 +85,6 @@ verify_jwt = false
 
 [functions.knowledge-search]
 verify_jwt = false
+
+[functions.update-whatsapp-credentials]
+verify_jwt = true
