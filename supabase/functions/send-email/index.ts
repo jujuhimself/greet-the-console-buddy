@@ -1,7 +1,9 @@
 import { serve } from 'https://deno.land/std@0.190.0/http/server.ts';
 import { Resend } from 'npm:resend@2.0.0';
 
-const resend = new Resend(Deno.env.get('RESEND_API_KEY'));
+// Use provided Resend credentials
+const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY') || 're_GbvzrxQd_2rA7mcar29C4VDdkaM72cKsr';
+const resend = new Resend(RESEND_API_KEY);
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,7 +25,8 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { to, subject, html, from }: EmailRequest = await req.json();
 
-    const fromEmail = from || Deno.env.get('RESEND_FROM_EMAIL') || 'notifications@bepawaa.com';
+    // Use provided email address
+    const fromEmail = from || Deno.env.get('RESEND_FROM_EMAIL') || 'support@bepawaa.com';
 
     console.log('Sending email to:', to, 'Subject:', subject);
 

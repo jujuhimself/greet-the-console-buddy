@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { comprehensiveNotificationService } from './comprehensiveNotificationService';
 
 export interface Appointment {
   id: string;
@@ -23,6 +24,29 @@ class AppointmentService {
       .single();
 
     if (error) throw error;
+
+    // Send notification for new appointment
+    try {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('email, name')
+        .eq('id', appointment.user_id)
+        .single();
+
+      if (userData?.email) {
+        await comprehensiveNotificationService.notifyLabTestBooked(
+          appointment.user_id,
+          userData.email,
+          appointment.service_type,
+          appointment.appointment_date,
+          appointment.appointment_time,
+          appointment.provider_type
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send appointment notification:', notifError);
+    }
+
     return data;
   }
 
@@ -51,6 +75,35 @@ class AppointmentService {
       .single();
 
     if (error) throw error;
+
+    // Send notification for appointment status changes
+    try {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('email, name')
+        .eq('id', data.user_id)
+        .single();
+
+      if (userData?.email && (status === 'confirmed' || status === 'cancelled')) {
+        const title = status === 'confirmed' 
+          ? '✅ Appointment Confirmed'
+          : '❌ Appointment Cancelled';
+        const message = status === 'confirmed'
+          ? `Your ${data.service_type} appointment on ${data.appointment_date} at ${data.appointment_time} has been confirmed.`
+          : `Your ${data.service_type} appointment has been cancelled.`;
+
+        await comprehensiveNotificationService.notifyAppointmentStatusChange(
+          data.user_id,
+          userData.email,
+          data.service_type,
+          data.appointment_date,
+          status
+        );
+      }
+    } catch (notifError) {
+      console.error('Failed to send appointment status notification:', notifError);
+    }
+
     return data;
   }
 

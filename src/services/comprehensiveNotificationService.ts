@@ -171,6 +171,67 @@ class ComprehensiveNotificationService {
     );
   }
 
+  async notifyAppointmentStatusChange(
+    userId: string,
+    email: string,
+    serviceType: string,
+    appointmentDate: string,
+    status: string
+  ): Promise<void> {
+    const statusMessages: Record<string, { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }> = {
+      confirmed: {
+        title: 'Appointment Confirmed ✅',
+        message: `Your ${serviceType} appointment on ${appointmentDate} has been confirmed`,
+        type: 'success'
+      },
+      cancelled: {
+        title: 'Appointment Cancelled ❌',
+        message: `Your ${serviceType} appointment on ${appointmentDate} has been cancelled`,
+        type: 'warning'
+      },
+      completed: {
+        title: 'Appointment Completed ✓',
+        message: `Your ${serviceType} appointment has been completed`,
+        type: 'success'
+      },
+    };
+
+    const statusInfo = statusMessages[status] || {
+      title: 'Appointment Updated',
+      message: `Your ${serviceType} appointment status has been updated to ${status}`,
+      type: 'info' as 'info' | 'success' | 'warning' | 'error'
+    };
+
+    await this.sendMultiChannel(
+      userId,
+      statusInfo.title,
+      statusInfo.message,
+      statusInfo.type,
+      {
+        category: 'appointment',
+        serviceType,
+        appointmentDate,
+        status,
+      },
+      {
+        to: email,
+        subject: statusInfo.title,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h1 style="color: #2563eb;">${statusInfo.title}</h1>
+            <p>${statusInfo.message}</p>
+            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceType}</p>
+              <p style="margin: 5px 0;"><strong>Date:</strong> ${appointmentDate}</p>
+              <p style="margin: 5px 0;"><strong>Status:</strong> ${status}</p>
+            </div>
+            <p>Best regards,<br>The Bepawa Team</p>
+          </div>
+        `,
+      }
+    );
+  }
+
   // ============= PHARMACY NOTIFICATIONS =============
 
   async notifyPharmacyNewOrder(

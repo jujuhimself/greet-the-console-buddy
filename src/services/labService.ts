@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { comprehensiveNotificationService } from './comprehensiveNotificationService';
 
 export interface LabTest {
   id: string;
@@ -123,6 +124,47 @@ class LabService {
     if (error) {
       console.error('Error creating lab order:', error);
       throw error;
+    }
+
+    // Send notification for new lab order
+    try {
+      const { data: userData } = await supabase
+        .from('profiles')
+        .select('email, name')
+        .eq('id', user.id)
+        .single();
+
+      if (userData?.email) {
+        await comprehensiveNotificationService.notifyLabTestBooked(
+          user.id,
+          userData.email,
+          order.patient_name,
+          order.order_date,
+          order.sample_collection_time || 'TBD',
+          'lab'
+        );
+      }
+
+      // Notify lab about new order if lab_id exists
+      if (order.lab_id) {
+        const { data: labData } = await supabase
+          .from('profiles')
+          .select('email, name')
+          .eq('id', order.lab_id)
+          .single();
+
+        if (labData?.email) {
+          await comprehensiveNotificationService.notifyLabNewAppointment(
+            order.lab_id,
+            labData.email,
+            order.patient_name,
+            order.order_date,
+            order.sample_collection_time || 'TBD'
+          );
+        }
+      }
+    } catch (notifError) {
+      console.error('Failed to send lab order notification:', notifError);
     }
 
     return {
