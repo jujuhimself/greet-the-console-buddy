@@ -3244,7 +3244,7 @@ export type Database = {
           created_at: string
           device_info: Json | null
           id: string
-          ip_address: unknown | null
+          ip_address: unknown
           is_active: boolean
           location: Json | null
           session_end: string | null
@@ -3256,7 +3256,7 @@ export type Database = {
           created_at?: string
           device_info?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           is_active?: boolean
           location?: Json | null
           session_end?: string | null
@@ -3268,7 +3268,7 @@ export type Database = {
           created_at?: string
           device_info?: Json | null
           id?: string
-          ip_address?: unknown | null
+          ip_address?: unknown
           is_active?: boolean
           location?: Json | null
           session_end?: string | null
@@ -3396,14 +3396,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      binary_quantize: {
-        Args: { "": string } | { "": unknown }
-        Returns: unknown
-      }
-      get_current_user_role: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
+      get_current_user_role: { Args: never; Returns: string }
       get_orders_by_retailer: {
         Args: { retailer_uuid: string }
         Returns: {
@@ -3426,6 +3419,12 @@ export type Database = {
           user_id: string
           wholesaler_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_orders_by_wholesaler: {
         Args: { wholesaler_uuid: string }
@@ -3449,6 +3448,12 @@ export type Database = {
           user_id: string
           wholesaler_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "orders"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_product_analytics_by_pharmacy: {
         Args: { pharmacy_uuid: string }
@@ -3464,6 +3469,12 @@ export type Database = {
           stock_turnover_rate: number
           user_id: string
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "product_analytics"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_products_by_retailer: {
         Args: { retailer_uuid: string }
@@ -3500,6 +3511,12 @@ export type Database = {
           user_id: string | null
           wholesaler_id: string | null
         }[]
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       get_products_by_wholesaler: {
         Args: { wholesaler_uuid: string }
@@ -3536,38 +3553,12 @@ export type Database = {
           user_id: string | null
           wholesaler_id: string | null
         }[]
-      }
-      halfvec_avg: {
-        Args: { "": number[] }
-        Returns: unknown
-      }
-      halfvec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      halfvec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      halfvec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      hnsw_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnsw_sparsevec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      hnswhandler: {
-        Args: { "": unknown }
-        Returns: unknown
+        SetofOptions: {
+          from: "*"
+          to: "products"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       insert_product_with_user: {
         Args: {
@@ -3582,26 +3573,6 @@ export type Database = {
           p_wholesaler_id?: string
         }
         Returns: string
-      }
-      ivfflat_bit_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflat_halfvec_support: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      ivfflathandler: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      l2_norm: {
-        Args: { "": unknown } | { "": unknown }
-        Returns: number
-      }
-      l2_normalize: {
-        Args: { "": string } | { "": unknown } | { "": unknown }
-        Returns: unknown
       }
       match_care_knowledge: {
         Args: {
@@ -3618,42 +3589,6 @@ export type Database = {
           title: string
           topic: string
         }[]
-      }
-      sparsevec_out: {
-        Args: { "": unknown }
-        Returns: unknown
-      }
-      sparsevec_send: {
-        Args: { "": unknown }
-        Returns: string
-      }
-      sparsevec_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
-      }
-      vector_avg: {
-        Args: { "": number[] }
-        Returns: string
-      }
-      vector_dims: {
-        Args: { "": string } | { "": unknown }
-        Returns: number
-      }
-      vector_norm: {
-        Args: { "": string }
-        Returns: number
-      }
-      vector_out: {
-        Args: { "": string }
-        Returns: unknown
-      }
-      vector_send: {
-        Args: { "": string }
-        Returns: string
-      }
-      vector_typmod_in: {
-        Args: { "": unknown[] }
-        Returns: number
       }
     }
     Enums: {
