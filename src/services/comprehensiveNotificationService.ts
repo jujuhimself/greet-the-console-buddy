@@ -1,561 +1,122 @@
 import { notificationService } from './notificationService';
 import { emailService } from './emailService';
-import { supabase } from '@/integrations/supabase/client';
 
-/**
- * Comprehensive notification service that handles all platform notifications
- * Sends both in-app notifications and emails
- */
 class ComprehensiveNotificationService {
-  /**
-   * Send notification via multiple channels
-   */
   private async sendMultiChannel(
     userId: string,
+    userEmail: string,
     title: string,
     message: string,
     type: 'info' | 'success' | 'warning' | 'error',
-    metadata?: any,
-    emailData?: { to: string; subject: string; html: string }
+    metadata?: any
   ): Promise<void> {
-    // Send in-app notification
-    await notificationService.createNotification({
-      user_id: userId,
-      title,
-      message,
-      type,
-      metadata: {
-        ...metadata,
-        priority: type === 'error' ? 'high' : 'medium',
-        timestamp: new Date().toISOString(),
-      },
-    });
+    try {
+      await notificationService.createNotification({
+        user_id: userId,
+        title,
+        message,
+        type,
+        metadata: { ...metadata, priority: type === 'error' ? 'high' : 'medium' },
+      });
+    } catch (error) {
+      console.error('Failed to create notification:', error);
+    }
 
-    // Send email if email data provided
-    if (emailData) {
-      try {
-        await emailService.sendEmail(emailData);
-      } catch (error) {
-        console.error('Failed to send email notification:', error);
-      }
+    try {
+      const emailMsg = `<h2 style="color: #374151;">${title}</h2><p>${message}</p>
+        ${metadata?.actionUrl ? `<div style="margin: 30px 0; text-align: center;">
+          <a href="${metadata.actionUrl}" style="background-color: #2563eb; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; display: inline-block; font-weight: 600;">
+            ${metadata.actionLabel || 'View Details'}
+          </a></div>` : ''}`;
+      await emailService.sendNotificationEmail(userEmail, emailMsg);
+    } catch (error) {
+      console.error('Failed to send email:', error);
     }
   }
 
-  // ============= INDIVIDUAL NOTIFICATIONS =============
-
-  async notifyLabTestBooked(
-    userId: string,
-    email: string,
-    patientName: string,
-    testType: string,
-    appointmentDate: string,
-    labName: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      userId,
-      'Lab Test Appointment Booked 🔬',
-      `Your ${testType} appointment at ${labName} is scheduled for ${appointmentDate}`,
-      'success',
-      {
-        category: 'lab_appointment',
-        testType,
-        appointmentDate,
-        labName,
-      },
-      {
-        to: email,
-        subject: `Lab Appointment Confirmed - ${testType}`,
-        html: await this.getLabAppointmentEmailHtml(patientName, testType, appointmentDate, labName),
-      }
-    );
+  async notifyLabTestBooked(userId: string, email: string, patientName: string, testType: string, appointmentDate: string, labName: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Lab Test Booked 🔬', `Hi ${patientName}, your ${testType} at ${labName} is on ${appointmentDate}`, 'success', { category: 'lab_appointment' });
   }
 
-  async notifyCircumcisionBooked(
-    userId: string,
-    email: string,
-    appointmentDate: string,
-    providerName: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      userId,
-      'Circumcision Appointment Confirmed 🏥',
-      `Your circumcision appointment at ${providerName} is scheduled for ${appointmentDate}`,
-      'success',
-      {
-        category: 'appointment',
-        type: 'circumcision',
-        appointmentDate,
-      }
-    );
+  async notifyCircumcisionBooked(userId: string, email: string, appointmentDate: string, providerName: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Appointment Confirmed 🏥', `Circumcision at ${providerName} on ${appointmentDate}`, 'success', { category: 'appointment' });
   }
 
-  async notifyOrderPlaced(
-    userId: string,
-    email: string,
-    orderNumber: string,
-    totalAmount: number,
-    items: any[]
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      userId,
-      'Order Placed Successfully 📦',
-      `Your order ${orderNumber} for TZS ${totalAmount.toLocaleString()} has been placed`,
-      'success',
-      {
-        category: 'order',
-        orderNumber,
-        actionUrl: `/orders/${orderNumber}`,
-        actionLabel: 'View Order',
-      },
-      {
-        to: email,
-        subject: `Order Confirmation - ${orderNumber}`,
-        html: await this.getOrderEmailHtml(orderNumber, items, totalAmount),
-      }
-    );
+  async notifyOrderPlaced(userId: string, email: string, orderNumber: string, totalAmount: number, items: any[]): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Order Confirmed 🛒', `Order ${orderNumber} - TZS ${totalAmount.toLocaleString()}`, 'success', { category: 'order', actionUrl: `/orders/${orderNumber}`, actionLabel: 'View Order' });
   }
 
-  async notifyOrderStatusChange(
-    userId: string,
-    email: string,
-    orderNumber: string,
-    oldStatus: string,
-    newStatus: string
-  ): Promise<void> {
-    const statusMessages: Record<string, string> = {
-      pending: 'Your order is pending confirmation',
-      confirmed: 'Your order has been confirmed',
-      processing: 'Your order is being processed',
-      ready: 'Your order is ready for pickup',
-      delivered: 'Your order has been delivered',
-      cancelled: 'Your order has been cancelled',
-    };
-
-    await this.sendMultiChannel(
-      userId,
-      'Order Status Updated',
-      statusMessages[newStatus] || `Order ${orderNumber} status: ${newStatus}`,
-      newStatus === 'cancelled' ? 'warning' : 'info',
-      {
-        category: 'order',
-        orderNumber,
-        oldStatus,
-        newStatus,
-      }
-    );
+  async notifyOrderStatusChange(userId: string, email: string, orderNumber: string, oldStatus: string, newStatus: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Order Updated', `Order ${orderNumber}: ${oldStatus} → ${newStatus}`, 'info', { category: 'order' });
   }
 
-  async notifyLabResultsReady(
-    userId: string,
-    email: string,
-    patientName: string,
-    testType: string,
-    resultsUrl?: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      userId,
-      'Lab Results Ready 📋',
-      `Your ${testType} results are now available`,
-      'success',
-      {
-        category: 'lab_result',
-        testType,
-        actionUrl: resultsUrl || '/health-records',
-        actionLabel: 'View Results',
-      },
-      {
-        to: email,
-        subject: `Your Lab Results Are Ready - ${testType}`,
-        html: await this.getLabResultsEmailHtml(patientName, testType, resultsUrl),
-      }
-    );
+  async notifyLabResultsReady(userId: string, email: string, patientName: string, testType: string, resultsUrl?: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Lab Results Ready 📋', `Hi ${patientName}, your ${testType} results are available`, 'success', { category: 'lab_results', actionUrl: resultsUrl, actionLabel: 'View Results' });
   }
 
-  async notifyAppointmentStatusChange(
-    userId: string,
-    email: string,
-    serviceType: string,
-    appointmentDate: string,
-    status: string
-  ): Promise<void> {
-    const statusMessages: Record<string, { title: string; message: string; type: 'info' | 'success' | 'warning' | 'error' }> = {
-      confirmed: {
-        title: 'Appointment Confirmed ✅',
-        message: `Your ${serviceType} appointment on ${appointmentDate} has been confirmed`,
-        type: 'success'
-      },
-      cancelled: {
-        title: 'Appointment Cancelled ❌',
-        message: `Your ${serviceType} appointment on ${appointmentDate} has been cancelled`,
-        type: 'warning'
-      },
-      completed: {
-        title: 'Appointment Completed ✓',
-        message: `Your ${serviceType} appointment has been completed`,
-        type: 'success'
-      },
-    };
-
-    const statusInfo = statusMessages[status] || {
-      title: 'Appointment Updated',
-      message: `Your ${serviceType} appointment status has been updated to ${status}`,
-      type: 'info' as 'info' | 'success' | 'warning' | 'error'
-    };
-
-    await this.sendMultiChannel(
-      userId,
-      statusInfo.title,
-      statusInfo.message,
-      statusInfo.type,
-      {
-        category: 'appointment',
-        serviceType,
-        appointmentDate,
-        status,
-      },
-      {
-        to: email,
-        subject: statusInfo.title,
-        html: `
-          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-            <h1 style="color: #2563eb;">${statusInfo.title}</h1>
-            <p>${statusInfo.message}</p>
-            <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-              <p style="margin: 5px 0;"><strong>Service:</strong> ${serviceType}</p>
-              <p style="margin: 5px 0;"><strong>Date:</strong> ${appointmentDate}</p>
-              <p style="margin: 5px 0;"><strong>Status:</strong> ${status}</p>
-            </div>
-            <p>Best regards,<br>The Bepawa Team</p>
-          </div>
-        `,
-      }
-    );
+  async notifyPrescriptionUploaded(userId: string, email: string, prescriptionId: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Prescription Uploaded 💊', `Prescription ${prescriptionId} uploaded successfully`, 'success', { category: 'prescription' });
   }
 
-  // ============= PHARMACY NOTIFICATIONS =============
-
-  async notifyPharmacyNewOrder(
-    pharmacyId: string,
-    email: string,
-    orderNumber: string,
-    customerName: string,
-    totalAmount: number
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      pharmacyId,
-      'New Order Received 🛒',
-      `New order ${orderNumber} from ${customerName} - TZS ${totalAmount.toLocaleString()}`,
-      'info',
-      {
-        category: 'order',
-        priority: 'high',
-        orderNumber,
-        actionUrl: `/orders/${orderNumber}`,
-        actionLabel: 'View Order',
-      }
-    );
+  async notifyPrescriptionReady(userId: string, email: string, prescriptionId: string, pharmacyName: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Prescription Ready 💊', `Ready for pickup at ${pharmacyName}`, 'success', { category: 'prescription' });
   }
 
-  async notifyLowStock(
-    pharmacyId: string,
-    email: string,
-    productName: string,
-    currentStock: number,
-    minThreshold: number
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      pharmacyId,
-      'Low Stock Alert ⚠️',
-      `${productName} is running low (${currentStock} units left, threshold: ${minThreshold})`,
-      'warning',
-      {
-        category: 'inventory',
-        priority: 'high',
-        productName,
-        currentStock,
-        minThreshold,
-      },
-      {
-        to: email,
-        subject: `🚨 Low Stock Alert: ${productName}`,
-        html: await this.getLowStockEmailHtml(productName, currentStock, minThreshold),
-      }
-    );
+  async notifyAppointmentStatusChange(userId: string, email: string, serviceType: string, appointmentDate: string, status: string): Promise<void> {
+    const title = status === 'confirmed' ? 'Appointment Confirmed ✓' : status === 'cancelled' ? 'Appointment Cancelled' : 'Appointment Updated';
+    await this.sendMultiChannel(userId, email, title, `${serviceType} on ${appointmentDate} - ${status}`, status === 'confirmed' ? 'success' : 'warning', { category: 'appointment' });
   }
 
-  async notifyWholesaleOrderUpdate(
-    pharmacyId: string,
-    orderNumber: string,
-    status: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      pharmacyId,
-      'Wholesale Order Updated',
-      `Your wholesale order ${orderNumber} status: ${status}`,
-      'info',
-      {
-        category: 'wholesale_order',
-        orderNumber,
-        status,
-      }
-    );
+  async notifyPharmacyNewOrder(pharmacyId: string, email: string, orderNumber: string, customerName: string, totalAmount: number): Promise<void> {
+    await this.sendMultiChannel(pharmacyId, email, 'New Order 🛒', `${customerName} - Order ${orderNumber} - TZS ${totalAmount.toLocaleString()}`, 'info', { category: 'order', priority: 'high' });
   }
 
-  // ============= WHOLESALER NOTIFICATIONS =============
-
-  async notifyWholesalerNewOrder(
-    wholesalerId: string,
-    email: string,
-    orderNumber: string,
-    retailerName: string,
-    totalAmount: number
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      wholesalerId,
-      'New Retailer Order 📦',
-      `${retailerName} placed order ${orderNumber} - TZS ${totalAmount.toLocaleString()}`,
-      'info',
-      {
-        category: 'order',
-        priority: 'high',
-        orderNumber,
-        actionUrl: `/wholesale/orders/${orderNumber}`,
-        actionLabel: 'View Order',
-      }
-    );
+  async notifyLowStock(pharmacyId: string, email: string, productName: string, currentStock: number, minThreshold: number): Promise<void> {
+    await this.sendMultiChannel(pharmacyId, email, 'Low Stock Alert ⚠️', `${productName}: ${currentStock} units (threshold: ${minThreshold})`, 'warning', { category: 'inventory', priority: 'high' });
   }
 
-  async notifyCreditPaymentDue(
-    wholesalerId: string,
-    email: string,
-    retailerName: string,
-    amount: number,
-    dueDate: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      wholesalerId,
-      'Credit Payment Due 💳',
-      `${retailerName} has payment of TZS ${amount.toLocaleString()} due on ${dueDate}`,
-      'warning',
-      {
-        category: 'credit',
-        priority: 'high',
-        retailerName,
-        amount,
-        dueDate,
-      }
-    );
+  async notifyWholesaleOrderUpdate(pharmacyId: string, email: string, orderNumber: string, status: string): Promise<void> {
+    await this.sendMultiChannel(pharmacyId, email, 'Wholesale Order Updated', `Order ${orderNumber}: ${status}`, 'info', { category: 'wholesale_order' });
   }
 
-  // ============= LAB NOTIFICATIONS =============
-
-  async notifyLabNewAppointment(
-    labId: string,
-    email: string,
-    patientName: string,
-    testType: string,
-    appointmentDate: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      labId,
-      'New Appointment Scheduled 📅',
-      `${patientName} booked ${testType} for ${appointmentDate}`,
-      'info',
-      {
-        category: 'appointment',
-        priority: 'high',
-        patientName,
-        testType,
-        appointmentDate,
-      }
-    );
+  async notifyWholesalerNewOrder(wholesalerId: string, email: string, orderNumber: string, retailerName: string, totalAmount: number): Promise<void> {
+    await this.sendMultiChannel(wholesalerId, email, 'New Retailer Order 📦', `${retailerName} - ${orderNumber} - TZS ${totalAmount.toLocaleString()}`, 'info', { category: 'order', priority: 'high' });
   }
 
-  async notifyLabResultUploadDue(
-    labId: string,
-    appointmentId: string,
-    patientName: string,
-    testType: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      labId,
-      'Result Upload Reminder ⏰',
-      `Please upload results for ${patientName} - ${testType}`,
-      'warning',
-      {
-        category: 'lab_result',
-        priority: 'high',
-        appointmentId,
-        patientName,
-        testType,
-      }
-    );
+  async notifyCreditPaymentDue(wholesalerId: string, email: string, retailerName: string, amount: number, dueDate: string): Promise<void> {
+    await this.sendMultiChannel(wholesalerId, email, 'Payment Due 💳', `${retailerName}: TZS ${amount.toLocaleString()} due ${dueDate}`, 'warning', { category: 'credit', priority: 'high' });
   }
 
-  async notifyLabAppointmentCancelled(
-    labId: string,
-    patientName: string,
-    testType: string,
-    appointmentDate: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      labId,
-      'Appointment Cancelled ❌',
-      `${patientName} cancelled ${testType} appointment on ${appointmentDate}`,
-      'warning',
-      {
-        category: 'appointment',
-        patientName,
-        testType,
-        appointmentDate,
-      }
-    );
+  async notifyLabNewAppointment(labId: string, email: string, patientName: string, testType: string, appointmentDate: string): Promise<void> {
+    await this.sendMultiChannel(labId, email, 'New Appointment 🔬', `${patientName} - ${testType} - ${appointmentDate}`, 'info', { category: 'appointment', priority: 'high' });
   }
 
-  // ============= ADMIN NOTIFICATIONS =============
-
-  async notifyAdminNewProviderRequest(
-    adminId: string,
-    providerName: string,
-    providerType: string,
-    userId: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      adminId,
-      'New Provider Registration 🏥',
-      `${providerName} (${providerType}) requested account approval`,
-      'info',
-      {
-        category: 'admin_approval',
-        priority: 'high',
-        providerName,
-        providerType,
-        actionUrl: `/admin?tab=approvals`,
-        actionLabel: 'Review Request',
-      }
-    );
+  async notifyLabCancelledAppointment(labId: string, email: string, appointmentId: string, patientName: string, testType: string): Promise<void> {
+    await this.sendMultiChannel(labId, email, 'Appointment Cancelled', `${patientName} - ${testType} (${appointmentId})`, 'warning', { category: 'appointment', priority: 'high' });
   }
 
-  async notifyAdminNewBranch(
-    adminId: string,
-    branchName: string,
-    organizationName: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      adminId,
-      'New Branch Added 🏢',
-      `${organizationName} added branch: ${branchName}`,
-      'info',
-      {
-        category: 'admin_info',
-        branchName,
-        organizationName,
-      }
-    );
+  async notifyLabResultsUploaded(patientId: string, email: string, patientName: string, testType: string, appointmentDate: string): Promise<void> {
+    await this.sendMultiChannel(patientId, email, 'Results Uploaded 📊', `${testType} results from ${appointmentDate}`, 'success', { category: 'lab_results' });
   }
 
-  async notifyAdminPaymentReceived(
-    adminId: string,
-    amount: number,
-    payerName: string,
-    paymentType: string
-  ): Promise<void> {
-    await this.sendMultiChannel(
-      adminId,
-      'Payment Received 💰',
-      `${payerName} paid TZS ${amount.toLocaleString()} for ${paymentType}`,
-      'success',
-      {
-        category: 'payment',
-        amount,
-        payerName,
-        paymentType,
-      }
-    );
+  async notifyAdminNewProviderRequest(adminId: string, email: string, providerName: string, providerType: string): Promise<void> {
+    await this.sendMultiChannel(adminId, email, 'New Provider 🏪', `${providerName} (${providerType}) registration`, 'info', { category: 'admin', priority: 'high', actionUrl: '/admin/approvals' });
   }
 
-  // ============= EMAIL HTML TEMPLATES =============
-
-  private async getLabAppointmentEmailHtml(
-    patientName: string,
-    testType: string,
-    appointmentDate: string,
-    labName: string
-  ): Promise<string> {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #2563eb;">Lab Appointment Confirmed! 🔬</h1>
-        <p>Hi ${patientName},</p>
-        <p>Your lab appointment has been scheduled:</p>
-        <div style="background-color: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
-          <p style="margin: 5px 0;"><strong>Test Type:</strong> ${testType}</p>
-          <p style="margin: 5px 0;"><strong>Date & Time:</strong> ${appointmentDate}</p>
-          <p style="margin: 5px 0;"><strong>Lab:</strong> ${labName}</p>
-        </div>
-        <p>Best regards,<br>The Bepawa Team</p>
-      </div>
-    `;
+  async notifyProviderApproved(providerId: string, email: string, branchName: string, organizationName: string): Promise<void> {
+    await this.sendMultiChannel(providerId, email, 'Account Approved ✅', `${branchName} for ${organizationName} approved`, 'success', { category: 'approval' });
   }
 
-  private async getOrderEmailHtml(
-    orderNumber: string,
-    items: any[],
-    totalAmount: number
-  ): Promise<string> {
-    const itemsHtml = items.map(item => `
-      <tr>
-        <td style="padding: 8px;">${item.product_name || item.name}</td>
-        <td style="padding: 8px;">${item.quantity}</td>
-        <td style="padding: 8px;">TZS ${(item.total_price || item.price).toLocaleString()}</td>
-      </tr>
-    `).join('');
-
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #2563eb;">Order Confirmed! 📦</h1>
-        <p>Your order <strong>${orderNumber}</strong> has been placed.</p>
-        <table style="width: 100%;">
-          <thead><tr><th>Item</th><th>Qty</th><th>Price</th></tr></thead>
-          <tbody>${itemsHtml}</tbody>
-          <tfoot><tr><td colspan="2"><strong>Total</strong></td><td><strong>TZS ${totalAmount.toLocaleString()}</strong></td></tr></tfoot>
-        </table>
-        <p>Best regards,<br>The Bepawa Team</p>
-      </div>
-    `;
+  async notifyPaymentReceived(userId: string, email: string, amount: number, payerName: string, paymentType: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Payment Received 💰', `TZS ${amount.toLocaleString()} from ${payerName} (${paymentType})`, 'success', { category: 'payment' });
   }
 
-  private async getLabResultsEmailHtml(
-    patientName: string,
-    testType: string,
-    resultsUrl?: string
-  ): Promise<string> {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #2563eb;">Your Lab Results Are Ready! 📋</h1>
-        <p>Hi ${patientName},</p>
-        <p>Your <strong>${testType}</strong> results are now available.</p>
-        ${resultsUrl ? `<a href="${resultsUrl}" style="background: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px;">View Results</a>` : ''}
-        <p>Best regards,<br>The Bepawa Team</p>
-      </div>
-    `;
+  async notifySystemMaintenance(userId: string, email: string, maintenanceDate: string, duration: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'Maintenance 🔧', `Scheduled for ${maintenanceDate}, duration: ${duration}`, 'warning', { category: 'system' });
   }
 
-  private async getLowStockEmailHtml(
-    productName: string,
-    currentStock: number,
-    minThreshold: number
-  ): Promise<string> {
-    return `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h1 style="color: #dc2626;">Low Stock Alert! ⚠️</h1>
-        <p><strong>${productName}</strong> is running low.</p>
-        <div style="background-color: #fef2f2; padding: 20px; border-left: 4px solid #dc2626;">
-          <p><strong>Current Stock:</strong> ${currentStock} units</p>
-          <p><strong>Threshold:</strong> ${minThreshold} units</p>
-        </div>
-        <p>Please reorder soon.</p>
-      </div>
-    `;
+  async notifyFeatureUpdate(userId: string, email: string, featureName: string, description: string): Promise<void> {
+    await this.sendMultiChannel(userId, email, 'New Feature 🎉', `${featureName}: ${description}`, 'info', { category: 'feature_update' });
   }
 }
 
