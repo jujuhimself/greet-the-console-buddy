@@ -1,0 +1,399 @@
+// Enhanced therapeutic chatbot with LLM integration, conversation memory, and RAG
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
+
+interface ChatRequest {
+  message: string;
+  sessionId?: string;
+  userId?: string;
+  channel?: 'web' | 'whatsapp';
+  phoneNumber?: string;
+  language?: 'en' | 'sw';
+}
+
+interface ConversationContext {
+  topics_discussed: string[];
+  emotional_state: string;
+  risk_level: 'low' | 'moderate' | 'high';
+  therapeutic_goals: string[];
+  session_count: number;
+  language_preference: string;
+}
+
+const crisisPhrases = [
+  // English
+  'suicide', 'kill myself', 'end my life', 'self harm', 'hurt myself', 'want to die', 'no point living',
+  'better off dead', 'not worth living', 'end it all', 'overdose', 'cutting', 'razor', 'bridge',
+  // Swahili
+  'kujiua', 'nimechoka kuishi', 'najiumiza', 'najidhuru', 'sitaki kuishi', 'maisha haina maana',
+  'ni afadhali nife', 'ninadhani kufa', 'hatuna haja ya kuishi'
+];
+
+function detectLanguage(text: string): 'en' | 'sw' {
+  // Robust heuristic: match whole words, ignore very short particles to avoid false positives
+  const cleaned = text.toLowerCase().replace(/[^\p{L}\s]/gu, ' ');
+  const tokens = cleaned.split(/\s+/).filter(Boolean);
+
+  const swLex = new Set<string>([
+    'habari','mambo','asante','karibu','pole','hujambo','sijambo','poa','sawa',
+    'nina','niko','mimi','wewe','yeye','najisikia','wasiwasi','ninahitaji','tafadhali','msaada',
+    'huzuni','furaha','hasira','uchovu','maumivu'
+  ]);
+  const enLex = new Set<string>([
+    'hello','hi','please','sorry','help','feel','feeling','anxious','anxiety','sad','angry','happy',
+    'family','work','school','support','stress','worried'
+  ]);
+
+  let sw = 0, en = 0;
+  for (const w of tokens) {
+    if (w.length < 3) continue; // ignore short particles like "na", "ya", "wa"
+    if (swLex.has(w)) sw++;
+    if (enLex.has(w)) en++;
+  }
+
+  if (sw > en) return 'sw';
+  if (en > sw) return 'en';
+  // Default to English on ties/unknown to avoid over-triggering Swahili
+  return 'en';
+}
+
+
+function isCrisisMessage(text: string): boolean {
+  const lower = text.toLowerCase();
+  return crisisPhrases.some(phrase => lower.includes(phrase));
+}
+
+async function searchKnowledge(supabase: any, query: string, lang: string, topK = 3) {
+  try {
+    const { data, error } = await supabase.functions.invoke('knowledge-search', {
+      body: { query, lang, topK }
+    });
+    if (error) throw error;
+    return data?.results || [];
+  } catch (err) {
+    console.warn('Knowledge search failed:', err);
+    return [];
+  }
+}
+
+async function callGroqLLM(message: string, context: any, language: string): Promise<string> {
+  const groqApiKey = Deno.env.get('GROQ_API_KEY');
+  const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
+
+  // Strong, compact therapeutic style with rapport-first guidance
+  const systemPrompt = language === 'sw'
+    ? `Wewe ni Bepawaa Care 💚, mshauri wa kisaikolojia wa AI.
+
+KANUNI MUHIMU:
+1) Lugha: Jibu kwa KISWAHILI TU — kamwe usibadilishe.
+2) Urefu: FUPI sana — mistari 2-4.
+3) Emojis: Tumia 1-2 emojis zenye staha (💚 🤗 😔 💪 🌟 ✨).
+4) Mtiririko: (i) Tambua hisia, (ii) Uliza swali moja wazi, (iii) Malizia kwa joto la upendo.
+5) Usalama: Ukisikia kujiua/kujidhuru → toa msaada wa haraka: Lifeline 116 (TZ) 🆘.
+6) Ujenzi wa urafiki (rapport): Katika jumbe 2-3 za mwanzo, uliza swali moja rahisi ili kumfahamu mtumiaji (jina lake anapopenda, jambo kuu linalomsumbua, aina ya msaada anaopendelea). Epuka maelezo marefu.
+`
+    : `You are Bepawaa Care 💚, an AI mental health counselor.
+
+CRITICAL RULES:
+1) Language: Reply in ENGLISH ONLY — never switch.
+2) Length: Keep it VERY SHORT — 2-4 lines.
+3) Emojis: Always include 1-2 caring emojis (💚 🤗 😔 💪 🌟 ✨).
+4) Flow: (i) Acknowledge emotion, (ii) Ask one open question, (iii) End warmly.
+5) Safety: If suicide/self-harm → provide immediate help for Tanzania: 116 🆘.
+6) Build rapport first: In the first 2-3 messages, ask one simple question to know the user (name preference, main concern, preferred support style). Avoid over-explaining.`;
+
+  const conversationHistory = context?.recent_messages || [];
+  const sess = typeof context?.session_count === 'number' ? context.session_count : 1;
+  const extraContext = context?.emotional_state
+    ? `\n\nContext: emotional_state=${context.emotional_state}; topics=${(context.topics_discussed||[]).join(', ')}; session_count=${sess}`
+    : `\n\nContext: session_count=${sess}`;
+
+  const messages = [
+    { role: 'system', content: systemPrompt + extraContext },
+    ...conversationHistory.slice(-6),
+    { role: 'user', content: message }
+  ];
+
+  const ensureEmoji = (text: string) => {
+    const hasEmoji = /[\u{1F300}-\u{1FAFF}]/u.test(text) || /💚|🤗|😔|💪|🌟|✨/.test(text);
+    return hasEmoji ? text : `${text.trim()} 💚`;
+  };
+
+  // Try Groq first if configured, otherwise fall back to Lovable AI gateway
+  const tryGroq = async () => {
+    if (!groqApiKey) throw new Error('GROQ_API_KEY not configured');
+    const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${groqApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'llama-3.1-8b-instant',
+        messages,
+        max_tokens: 260,
+        temperature: 0.8,
+        stream: false,
+      }),
+    });
+    if (!res.ok) throw new Error(`Groq API error: ${res.status}`);
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    return ensureEmoji(content || (language === 'sw' 
+      ? 'Samahani, nina tatizo la teknolojia. Tafadhali niambie kwa ufupi unajisikiaje sasa?'
+      : "I'm having a technical issue. Briefly tell me how you feel right now?"));
+  };
+
+  const tryLovable = async () => {
+    if (!lovableApiKey) throw new Error('LOVABLE_API_KEY not configured');
+    const res = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages,
+        stream: false,
+      }),
+    });
+    if (!res.ok) {
+      if (res.status === 429) throw new Error('Rate limited by AI gateway');
+      if (res.status === 402) throw new Error('Payment required by AI gateway');
+      throw new Error(`AI gateway error: ${res.status}`);
+    }
+    const data = await res.json();
+    const content = data.choices?.[0]?.message?.content || '';
+    return ensureEmoji(content || (language === 'sw' 
+      ? 'Samahani, nina tatizo la teknolojia. Tafadhali niambie kwa ufupi unajisikiaje sasa?'
+      : "I'm having a technical issue. Briefly tell me how you feel right now?"));
+  };
+
+  try {
+    if (groqApiKey) {
+      return await tryGroq();
+    }
+    return await tryLovable();
+  } catch (err) {
+    console.error('LLM primary error:', err);
+    try {
+      // Fallback to the other provider if available
+      if (groqApiKey && lovableApiKey) {
+        return await tryLovable();
+      }
+      if (!groqApiKey && lovableApiKey) {
+        return await tryLovable();
+      }
+      if (groqApiKey && !lovableApiKey) {
+        return await tryGroq();
+      }
+    } catch (err2) {
+      console.error('LLM secondary error:', err2);
+    }
+    return language === 'sw'
+      ? 'Samahani, nina tatizo la teknolojia. Je, unaweza kuniambia kwa ufupi unajisikiaje sasa? 💚'
+      : "I'm having a technical issue. Can you briefly tell me how you're feeling right now? 💚";
+  }
+}
+
+async function analyzeEmotionalState(message: string, context: any): Promise<string> {
+  const lowerMessage = message.toLowerCase();
+  
+  // Simple emotion detection
+  if (lowerMessage.includes('sad') || lowerMessage.includes('huzuni') || lowerMessage.includes('depressed')) {
+    return 'sad';
+  }
+  if (lowerMessage.includes('anxious') || lowerMessage.includes('worried') || lowerMessage.includes('wasiwasi')) {
+    return 'anxious';
+  }
+  if (lowerMessage.includes('angry') || lowerMessage.includes('frustrated') || lowerMessage.includes('hasira')) {
+    return 'angry';
+  }
+  if (lowerMessage.includes('happy') || lowerMessage.includes('good') || lowerMessage.includes('furaha')) {
+    return 'positive';
+  }
+  
+  return context?.emotional_state || 'neutral';
+}
+
+serve(async (req: Request) => {
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
+
+    const { message, sessionId = 'anonymous', userId, channel = 'web', phoneNumber, language: preferredLang }: ChatRequest = await req.json();
+
+    if (!message?.trim()) {
+      return new Response(JSON.stringify({ error: 'Message is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Auto-detect language if not provided
+    const language = preferredLang || detectLanguage(message);
+    console.log(`[Language Detection] Input: "${message.substring(0, 50)}..." | Detected: ${language}`);
+
+    // Crisis intervention - highest priority
+    if (isCrisisMessage(message)) {
+      const crisisResponse = language === 'sw' 
+        ? {
+            content: 'Nina wasiwasi mkuu kuhusu usalama wako. **Tafadhali wasiliana na msaada wa haraka:**\n\n🚨 **Tanzania**: Piga 116 au nenda hospitali ya karibu\n🆘 **Hali ya dharura**: Wasiliana na mtu wa karibu au familia\n\nHujako peke yako. Msaada upo. Je, uko mahali salama sasa?',
+            suggestions: ['Niko salama', 'Ninahitaji msaada wa haraka', 'Ningependa kuzungumza na mshauri'],
+            priority: 'crisis'
+          }
+        : {
+            content: 'I\'m very concerned about your safety right now. **Please reach out for immediate help:**\n\n🚨 **Tanzania**: Call 116 or go to nearest hospital\n🆘 **Emergency**: Contact a trusted friend or family member\n\nYou are not alone. Help is available. Are you in a safe place right now?',
+            suggestions: ['I am safe', 'I need immediate help', 'I want to talk to a counselor'],
+            priority: 'crisis'
+          };
+
+      return new Response(JSON.stringify(crisisResponse), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Get or create conversation
+    let conversationId: string;
+    let context: ConversationContext = {
+      topics_discussed: [],
+      emotional_state: 'neutral',
+      risk_level: 'low',
+      therapeutic_goals: [],
+      session_count: 1,
+      language_preference: language
+    };
+
+    const { data: existingConv } = await supabase
+      .from('chat_conversations')
+      .select('*')
+      .eq('session_id', sessionId)
+      .eq('channel', channel)
+      .single();
+
+    if (existingConv) {
+      conversationId = existingConv.id;
+      context = { ...context, ...existingConv.context };
+    } else {
+      const { data: newConv } = await supabase
+        .from('chat_conversations')
+        .insert({
+          user_id: userId || null,
+          session_id: sessionId,
+          channel,
+          phone_number: phoneNumber,
+          language,
+          context
+        })
+        .select()
+        .single();
+      
+      conversationId = newConv?.id;
+    }
+
+    // Get recent conversation history for context
+    const { data: recentMessages } = await supabase
+      .from('chat_messages')
+      .select('*')
+      .eq('conversation_id', conversationId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    const conversationHistory = recentMessages?.reverse().map(msg => ({
+      role: msg.role,
+      content: msg.content
+    })) || [];
+
+    context.recent_messages = conversationHistory;
+
+    // Search knowledge base first
+    const knowledgeResults = await searchKnowledge(supabase, message, language, 2);
+    
+    let response: string;
+    let usedKnowledge = false;
+
+    if (knowledgeResults.length > 0) {
+      // Use knowledge base + LLM for contextual response
+      const knowledgeContext = knowledgeResults.map(r => r.chunk_text).join('\n\n');
+      const contextualMessage = `Based on this information: ${knowledgeContext}\n\nUser question: ${message}`;
+      
+      response = await callGroqLLM(contextualMessage, context, language);
+      usedKnowledge = true;
+    } else {
+      // Pure LLM response for general therapy
+      response = await callGroqLLM(message, context, language);
+    }
+
+    // Update emotional state and context
+    const newEmotionalState = await analyzeEmotionalState(message, context);
+    const updatedContext: ConversationContext = {
+      ...context,
+      emotional_state: newEmotionalState,
+      session_count: context.session_count + 1,
+      topics_discussed: [...new Set([...context.topics_discussed, ...knowledgeResults.map(r => r.topic).filter(Boolean)])]
+    };
+
+    // Save messages and update context
+    await Promise.all([
+      supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        role: 'user',
+        content: message
+      }),
+      supabase.from('chat_messages').insert({
+        conversation_id: conversationId,
+        role: 'assistant', 
+        content: response,
+        metadata: { used_knowledge: usedKnowledge, knowledge_sources: knowledgeResults.length }
+      }),
+      supabase.from('chat_conversations')
+        .update({ context: updatedContext, updated_at: new Date().toISOString() })
+        .eq('id', conversationId)
+    ]);
+
+    // Generate contextual suggestions
+    const suggestions = language === 'sw' ? [
+      'Nieleze zaidi 💬',
+      'Mbinu za kukabiliana 💪',
+      'Zungumza na mshauri 🤝'
+    ] : [
+      'Tell me more 💬',
+      'Coping strategies 💪', 
+      'Talk to a counselor 🤝'
+    ];
+
+    return new Response(JSON.stringify({
+      content: response,
+      suggestions: suggestions,
+      context: {
+        emotional_state: newEmotionalState,
+        session_count: updatedContext.session_count,
+        used_knowledge: usedKnowledge
+      }
+    }), {
+      status: 200,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+
+  } catch (error) {
+    console.error('Therapeutic chat error:', error);
+    return new Response(JSON.stringify({ 
+      error: 'I apologize, but I\'m having technical difficulties. Please try again in a moment.' 
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+});
